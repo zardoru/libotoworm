@@ -10,9 +10,6 @@ namespace otoworm {
         TimingData		     warps;
         VectorInterpolatedSpeedMultipliers   interpolated_speed_multipliers;
         VectorTrackNote       notes;
-        VectorTrackNotePointer       notes_vertically_ordered;
-        VectorTrackNotePointer       notes_time_ordered;
-        std::vector<double>	 barlines;
         bool has_negative_scroll;
         bool has_turntable;
 
@@ -25,7 +22,6 @@ namespace otoworm {
         double real_to_warped_time(double song_time) const;
         double get_warp_amount(double time) const;
         bool is_warping_at(double start_time) const;
-        std::vector<double> generate_measure_lines() const;
         double get_speed_multiplier_at(double time) const; // Time in unwarped song time
         double get_bpm_at(double time) const;
         double get_bps_at(double time) const;
@@ -42,10 +38,6 @@ namespace otoworm {
         bool is_virtual() const;
         bool has_timing_data() const;
         SliceContainer get_bmson_slice_data() const;
-
-        void prepare_ordered_notes();
-        void disable_notes_until(double time);
-        void reset_notes();
 
         // Drift is an offset to apply to _everything_.
         // Speed is a constant to set the speed to.

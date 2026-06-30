@@ -184,7 +184,7 @@ void convert_to_sm_timing(otoworm::ChartGroup *sng, std::filesystem::path path_o
         if (i->value <= 0)
             continue;
 
-        double Beat = quantize_beat(data.bps.integrate_to_time(i->time));
+        double Beat = otoworm::quantize_beat(data.bps.integrate_to_time(i->time));
         double Value = i->value * 60;
 
         out << Beat << "=" << Value;

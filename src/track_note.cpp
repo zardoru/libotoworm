@@ -1,47 +1,24 @@
 #include <ChartGroup.h>
 
-int GetFractionKindBeat(double frac);
-
 namespace otoworm {
+    int GetFractionKindBeat(double frac);
 
     TrackNote::TrackNote() {
-        reset();
     }
 
     TrackNote::TrackNote(const NoteData &Data) {
-        reset();
         assign_note_data(Data);
     }
 
     TrackNote::~TrackNote() {
     }
 
-    void TrackNote::reset() {
-        enabled_hit_flags = EnabledFlag | HeadEnabledFlag;
-    }
-
     float TrackNote::get_hold_size() const {
         return std::abs((b_pos_holdend - b_pos));
     }
 
-    float TrackNote::get_hold_end_vertical() {
+    float TrackNote::get_hold_end_vertical() const {
         return b_pos_holdend;
-    }
-
-    void TrackNote::fail_hit() {
-        enabled_hit_flags |= FailedHitFlag;
-    }
-
-    void TrackNote::make_invisible() {
-        enabled_hit_flags |= InvisibleFlag;
-    }
-
-    void TrackNote::remove_sound() {
-        sound = 0;
-    }
-
-    bool TrackNote::failed_hit() const {
-        return (enabled_hit_flags & FailedHitFlag) != 0;
     }
 
     void TrackNote::assign_note_data(const NoteData &Notedata) {
@@ -86,31 +63,6 @@ namespace otoworm {
         return time;
     }
 
-    bool TrackNote::is_enabled() const {
-        return enabled_hit_flags & EnabledFlag;
-    }
-
-    bool TrackNote::is_head_enabled() const {
-        return (enabled_hit_flags & HeadEnabledFlag) != 0;
-    }
-
-    void TrackNote::disable() {
-        enabled_hit_flags &= ~EnabledFlag;
-        disable_head();
-    }
-
-    void TrackNote::disable_head() {
-        enabled_hit_flags &= ~HeadEnabledFlag;
-    }
-
-    void TrackNote::hit() {
-        enabled_hit_flags |= WasHitFlag;
-    }
-
-    bool TrackNote::was_hit() const {
-        return (enabled_hit_flags & WasHitFlag) != 0;
-    }
-
     float TrackNote::get_vertical_hold() const {
         return b_pos + get_hold_size() / 2;
     }
@@ -143,7 +95,7 @@ namespace otoworm {
         return note_kind;
     }
 
-    uint8_t TrackNote::get_data_fraction_kind() {
+    uint8_t TrackNote::get_data_fraction_kind() const {
         return fraction_kind;
     }
 
@@ -152,6 +104,6 @@ namespace otoworm {
     }
 
     bool TrackNote::is_visible() const {
-        return note_kind != NK_INVISIBLE && !(enabled_hit_flags & InvisibleFlag);
+        return note_kind != NK_INVISIBLE;
     }
 }

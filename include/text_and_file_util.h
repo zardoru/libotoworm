@@ -60,8 +60,14 @@ std::string int_to_str(int num);
 std::string char_to_string(char c);
 
 
-int b36toi(const char* txt);
-int b16toi(const char* txt);
+namespace otoworm::util
+{
+    int b36toi(const char* txt);
+    int b16toi(const char* txt);
+}
+
+using otoworm::util::b36toi;
+using otoworm::util::b16toi;
 
 template <class F, class T>
 T filter(F pred, const T &ctr)

@@ -45,4 +45,7 @@ namespace NoteLoaderBMSON
     void load_bmson_file(const std::filesystem::path& filename, otoworm::ChartGroup *Out);
 }
 
-std::shared_ptr<otoworm::ChartGroup> LoadSongFromFile(std::filesystem::path filename);
+namespace otoworm
+{
+    std::shared_ptr<ChartGroup> load_song_from_file(std::filesystem::path filename);
+}

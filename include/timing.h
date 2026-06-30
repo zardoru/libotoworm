@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 
+namespace otoworm {
+
 template <class T, class U>
 struct TimedEvent
 {
@@ -72,3 +74,4 @@ public:
     void load_list(std::string line, bool allow_zeros = false);
 };
 
+}

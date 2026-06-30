@@ -13,6 +13,8 @@ int lcm(const std::vector<int> &Set)
     return std::accumulate(Set.begin() + 1, Set.end(), *Set.begin(), lcm<int>);
 }
 
+namespace otoworm {
+
 size_t TimingData::section_index(const double point) const
 {
     return std::ranges::upper_bound(*this, point) - begin() - 1;
@@ -300,4 +302,6 @@ int GetFractionKindBeat(const double frac)
     FRACKIND(48, 1);
 
     return fracKind;
+}
+
 }

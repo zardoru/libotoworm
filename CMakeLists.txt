@@ -18,6 +18,7 @@ set(LIBOTOWORM_SOURCES
     src/note_loader_ojn.cpp
     src/note_loader_om.cpp
     src/note_loader_sm.cpp
+    src/nps_graph.cpp
     src/note_writer_bms.cpp
     src/note_writer_osumania.cpp
         src/ProcessedChart.cpp

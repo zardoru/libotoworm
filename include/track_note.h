@@ -28,13 +28,6 @@ namespace otoworm {
             }
         };
 
-
-        constexpr unsigned char EnabledFlag = 1 << 0;
-        constexpr unsigned char WasHitFlag = 1 << 1;
-        constexpr unsigned char HeadEnabledFlag = 1 << 2;
-        constexpr unsigned char FailedHitFlag = 1 << 3;
-        constexpr unsigned char InvisibleFlag = 1 << 4;
-
 		class TrackNote : public TimedEvent<TrackNote, double>
 		{
             // 16 bytes (Implied 8 with inherited TimedEvent)
@@ -51,9 +44,6 @@ namespace otoworm {
 			// 3 bytes
 			uint8_t note_kind; // To be used with ENoteKind.
 			uint8_t fraction_kind;
-
-			// The only real state actually tracked by the note
-			uint8_t enabled_hit_flags;
 
 			// 48 bytes aligned
 		public:
@@ -78,7 +68,7 @@ namespace otoworm {
 			uint8_t  get_data_note_kind() const;
 
 			// Get what fraction of a beat this note belongs to.
-			uint8_t  get_data_fraction_kind();
+			uint8_t  get_data_fraction_kind() const;
 
 			// Set this note's position on the vertical track.
 			void assign_position(double Position, double endPosition = 0);
@@ -86,18 +76,8 @@ namespace otoworm {
 			// Assign a fraction of a beat to this note.
 			void assign_fraction(double frc); // frc = fraction of a beat
 
-			// Mark this note/hold head as hit.
-			void hit();
-
 			// Add this much drift to the note. Doesn't reset.
 			void add_time(double Time);
-
-			// Disable note for judgment completely. Takes it out of update/press/release/scratch events etc..
-			void disable();
-
-			// Disable the head of this note. Leaves the option of hitting the tail if not disabled.
-			// It's a mechanics flag - it still gets updated/pressed/released etc...
-			void disable_head();
 
 			// Get the position on the track of the note/hold head.
 			float get_vertical() const;
@@ -107,15 +87,6 @@ namespace otoworm {
 
 			// Get whether this note is a hold.
 			bool is_hold() const;
-
-			// Get whether this note can be judged.
-			bool is_enabled() const;
-
-			// Get whether the head of this note (if a hold) is enabled.
-			bool is_head_enabled() const;
-
-			// Get whether this note was hit on the head.
-			bool was_hit() const;
 
 			// Get whether this note is a judgable kind of note. Doesn't depend on failure state.
 			// It also doesn't apply mechanical rules (i.e. hit notes can't be judged twice)
@@ -145,21 +116,7 @@ namespace otoworm {
 			float get_hold_size() const;
 
 			// Get the position of the tail of this hold on the unmodified track.
-			float get_hold_end_vertical();
-
-			// Informative flags. For use in mechanics.
-			// Mark this object as failed. Used only to have the additional failed state.
-			void fail_hit();
-
-			// Get whether this object was marked as failed.
-			bool failed_hit() const;
-
-			// Make this note invisible - That is to say, make no attempt at drawing it.
-			void make_invisible();
-			void remove_sound();
-
-			// Reset this note's state keeping timing/notetype information
-			void reset();
+			float get_hold_end_vertical() const;
 		};
 
 		inline bool operator<(const TrackNote& tn, double time)

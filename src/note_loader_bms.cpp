@@ -532,7 +532,7 @@ namespace NoteLoaderBMS
                              const bms::play_side side)
         {
             // Actual autodetection
-            auto maskFromChannelAtMeasure = [&](BMSMeasureList::iterator& i)
+            auto maskFromChannelAtMeasure = [&](const BMSMeasureList::iterator& i)
             {
                 for (const auto& [channel, events] : i->second.events)
                 {
@@ -656,7 +656,7 @@ namespace NoteLoaderBMS
         std::shared_ptr<BMSChartInfo> info;
 
     public:
-        BMSLoader(ChartGroup* song, std::unique_ptr<otoworm::Chart>& diff, const bool ispms)
+        BMSLoader(ChartGroup* song, std::unique_ptr<Chart>& diff, const bool ispms)
         {
             for (auto k = 0; k < MAX_CHANNELS; k++)
             {
@@ -771,13 +771,13 @@ namespace NoteLoaderBMS
             info->gauge_total = total;
         }
 
-        void SetDefexRank(const double defex)
+        void SetDefexRank(const double defex) const
         {
             info->judge_rank = defex;
             info->percentual_judgerank = true;
         }
 
-        void SetJudgeRank(const double judgerank)
+        void SetJudgeRank(const double judgerank) const
         {
             info->judge_rank = judgerank;
             info->percentual_judgerank = false;

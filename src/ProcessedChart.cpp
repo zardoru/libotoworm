@@ -192,9 +192,6 @@ namespace otoworm
             out.interpolated_speed_multipliers = data->interpolated_speed_multipliers;
         }
 
-        // this has to go _after_ speed changes were applied
-        out.barlines = out.generate_measure_lines();
-
         /* For all channels of this difficulty */
         for (int chan = 0; chan < diff->channels; chan++)
         {
@@ -256,48 +253,6 @@ namespace otoworm
         return out;
     }
 
-    void ProcessedChart::prepare_ordered_notes()
-    {
-        const auto diff = chart;
-
-
-        // We do this post push_back
-        // since pointers are invalidated at every turn back there.
-        for (int i = 0; i < diff->channels; i++)
-        {
-            notes_vertically_ordered[i].clear();
-            notes_time_ordered[i].clear();
-
-            for (int j = 0; j < notes[i].size(); j++)
-            {
-                auto ptr = &(notes[i][j]);
-                notes_vertically_ordered[i].push_back(ptr);
-                notes_time_ordered[i].push_back(ptr);
-            }
-
-            notes_vertically_ordered[i].shrink_to_fit();
-            notes_time_ordered[i].shrink_to_fit();
-        }
-
-        for (int i = 0; i < diff->channels; i++)
-        {
-            // done with the channel - sort it
-            std::ranges::stable_sort(notes_vertically_ordered[i]
-                                     ,
-                                     [](const TrackNote* A, const TrackNote* B) -> bool
-                                     {
-                                         return A->get_vertical() < B->get_vertical();
-                                     });
-
-            std::ranges::stable_sort(notes_time_ordered[i]
-                                     ,
-                                     [](const TrackNote* A, const TrackNote* B) -> bool
-                                     {
-                                         return A->get_start_time() < B->get_start_time();
-                                     });
-        }
-    }
-
     // audio time -> chart time
     double ProcessedChart::real_to_warped_time(const double song_time) const
     {
@@ -309,58 +264,6 @@ namespace otoworm
         }
 
         return T;
-    }
-
-    std::vector<double> ProcessedChart::generate_measure_lines() const
-    {
-        auto& diff = chart;
-        const auto& Data = diff->transient;
-        double Last = 0;
-
-
-        std::vector<double> Out;
-
-        if (!Data)
-            return Out;
-
-        if (bps.empty())
-            return Out;
-
-        if (Data->measures.empty())
-            return Out;
-
-
-        // Add lines before offset, and during waiting time...
-        const double initial_bps = bps.front().value;
-        const double PreTime = wait_time + diff->offset;
-        const double PreTimeBeats = initial_bps * PreTime;
-        const int TotMeasures = PreTimeBeats / Data->measures[0].length;
-        const double MeasureTime = 1 / initial_bps * Data->measures[0].length;
-
-        // if (DebugMeasurePosGen)
-        //	Log::LogPrintf("Total pre-offset measures: %d (pt: %f, ptb: %f, mtime: %f)\n", TotMeasures, PreTime, PreTimeBeats, MeasureTime);
-
-        for (auto i = 0; i < TotMeasures; i++)
-        {
-            const auto T = diff->offset - MeasureTime * i;
-            auto PositionOut = speeds.integrate_to_time(T);
-            Out.push_back(PositionOut);
-            //if (DebugMeasurePosGen)
-            //	Log::LogPrintf("Add measure line at time %f (Vertical %f)\n", T, PositionOut);
-        }
-
-        // Add
-        for (const auto& Msr : Data->measures)
-        {
-            double PositionOut = 0.0;
-
-            PositionOut = speeds.integrate_to_time(get_time_for_beat(Last));
-
-            Out.push_back(PositionOut);
-            Last += Msr.length;
-        }
-
-        return Out;
     }
 
     double ProcessedChart::get_bpm_at(const double time) const
@@ -516,19 +419,4 @@ namespace otoworm
         return speeds.section_value(real_to_warped_time(time));
     }
 
-    void ProcessedChart::disable_notes_until(const double time)
-    {
-        reset_notes();
-        for (auto k = 0U; k < MAX_CHANNELS; k++)
-            for (auto m = notes[k].begin(); m != notes[k].end(); ++m)
-                if (m->get_start_time() <= time)
-                    m->disable();
-    }
-
-    void ProcessedChart::reset_notes()
-    {
-        for (auto k = 0U; k < MAX_CHANNELS; k++)
-            for (auto m = notes[k].begin(); m != notes[k].end(); ++m)
-                m->reset();
-    }
 }

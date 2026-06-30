@@ -13,18 +13,18 @@
 
 #include "sha256/sha256.h"
 
-int b36toi(const char *txt)
-{
-	return strtoul(txt, nullptr, 36);
-}
-
-int b16toi(const char *txt)
-{
-	return strtoul(txt, nullptr, 16);
-}
-
 namespace otoworm::util
 {
+    int b36toi(const char *txt)
+    {
+        return strtoul(txt, nullptr, 36);
+    }
+
+    int b16toi(const char *txt)
+    {
+        return strtoul(txt, nullptr, 16);
+    }
+
     void debug_break()
     {
 #ifndef NDEBUG
@@ -153,25 +153,25 @@ namespace otoworm::util
 
 		return out;
 	}
-} // namespace otoworm::util
-
-double latof(std::string s)
-{
-    const char point = *localeconv()->decimal_point;
-
-    if (s.find_first_of(point) == std::string::npos)
+    double latof(std::string s)
     {
-        char toFind = '.';
-        if (point == ',') toFind = '.';
-        else if (point == '.') toFind = ',';
+        const char point = *localeconv()->decimal_point;
 
-        const size_t idx = s.find_first_of(toFind);
-        if (idx != std::string::npos)
-            s[idx] = point;
+        if (s.find_first_of(point) == std::string::npos)
+        {
+            char toFind = '.';
+            if (point == ',') toFind = '.';
+            else if (point == '.') toFind = ',';
+
+            const size_t idx = s.find_first_of(toFind);
+            if (idx != std::string::npos)
+                s[idx] = point;
+        }
+
+        return atof(s.c_str());
     }
 
-    return atof(s.c_str());
-}
+} // namespace otoworm::util
 
 std::string int_to_str(const int num)
 {

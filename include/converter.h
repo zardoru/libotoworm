@@ -1,5 +1,8 @@
 #pragma once
 
+#include <ChartGroup.h>
+#include <rmath.h>
+
 #include <functional>
 
 class RowifiedChart
@@ -36,7 +39,7 @@ protected:
     void process_measures();
 
     std::vector<Measure> measures_;
-    TimingData bps;
+    otoworm::TimingData bps;
 
     otoworm::Chart *parent{};
 

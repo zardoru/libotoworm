@@ -9,6 +9,9 @@
 #include <memory>
 #include <optional>
 
+namespace otoworm
+{
+
 struct AutoplaySound : public TimedEvent < AutoplaySound, double >
 {
     uint32_t sound;
@@ -40,8 +43,6 @@ struct SliceContainer
     std::map<int, std::map<int, SliceInfo>> slices; // 1st int := wav index, 2nd int := snd index, Slice Info, where to cut for 2nd int for wav 1st int
 };
 
-namespace otoworm
-{
     constexpr size_t MAX_CHANNELS = 16;
 
     struct Measure
@@ -73,7 +74,6 @@ namespace otoworm
     typedef std::vector<Measure> VectorMeasure;
 
     typedef std::vector<TrackNote> VectorTrackNote[MAX_CHANNELS];
-    typedef std::vector<TrackNote*> VectorTrackNotePointer[MAX_CHANNELS];
 
     class ChartInfo
     {
@@ -309,10 +309,6 @@ namespace otoworm
         ChartGroup() { id = -1; preview_time = 0; };
         virtual ~ChartGroup() = default;
     };
-}
-
-
-
 /* Song Timing */
 inline double spb(double bpm) { return 60 / bpm; } // Return seconds per beat.
 inline double bpm_to_bps(double bpm) { return bpm / 60; } // Return beats per second.
@@ -329,3 +325,5 @@ double quantize_fraction_measure(double Frac);
 
 // Quantizes beat to a beat's maximum resolution (1/48th of a beat)
 double quantize_beat(double Beat);
+
+}
