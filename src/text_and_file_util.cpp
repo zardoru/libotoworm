@@ -7,6 +7,7 @@
 #include <sstream>
 #include <filesystem>
 #include <chrono>
+#include <cstdarg>
 
 
 #include "text_and_file_util.h"
@@ -142,17 +143,22 @@ namespace otoworm::util
         return std::string(SHA.getHash());
     }
 
-	std::vector<std::filesystem::path> get_file_listing(std::filesystem::path path)
-	{
-		std::vector<std::filesystem::path> out;
+    std::string format(std::string str, ...)
+    {
+        va_list argptr;
+        va_start(argptr, str);
+        const size_t size = vsnprintf(nullptr, 0, str.c_str(), argptr) + 1;
+        va_end(argptr);
 
-		if (!std::filesystem::exists(path)) return out;
-		for (auto &p : std::filesystem::directory_iterator(path)) {
-			out.push_back(p);
-		}
+        auto buffer = std::vector<char>(size);
 
-		return out;
-	}
+        va_start(argptr, str);
+        vsnprintf(buffer.data(), size, str.c_str(), argptr);
+        va_end(argptr);
+
+        return std::string(buffer.data(), size - 1);
+    }
+
     double latof(std::string s)
     {
         const char point = *localeconv()->decimal_point;

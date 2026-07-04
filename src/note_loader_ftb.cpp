@@ -6,7 +6,7 @@
 
 #include <fstream>
 #include <ChartGroup.h>
-#include <note_loader_7k.h>
+#include <note_loader.h>
 #include "text_and_file_util.h"
 
 using namespace otoworm;

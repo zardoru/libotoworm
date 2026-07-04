@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 4.2)
 
 project(libotoworm
     VERSION 0.1.0
@@ -23,7 +23,7 @@ set(LIBOTOWORM_SOURCES
     src/note_writer_osumania.cpp
         src/ProcessedChart.cpp
     src/rowified_difficulty_7k.cpp
-    src/song_7k.cpp
+    src/song.cpp
     src/song_timing.cpp
     src/text_and_file_util.cpp
     src/track_note.cpp

@@ -1,3 +1,5 @@
+#pragma once
+
 #include <filesystem>
 
 namespace otoworm::util
@@ -10,14 +12,13 @@ namespace otoworm::util
     
     void normalize_filename(std::string &S, bool removeSlash, bool noAbsolute = true);
 
+    std::string format(std::string str, ...);
 
     std::vector<std::string> token_split(const std::string &str, const std::string &token = ",", bool compress = false);
 
     std::string trim(std::string& str);
     std::string replace_all(std::string& str, const std::string& seq, const std::string what);
     std::string to_lower(std::string& str); // Caveat: only for ascii purposes.
-
-	std::vector<std::filesystem::path> get_file_listing(std::filesystem::path path);
 
     template <class T>
     std::string join(const T& iterable, const std::string& seq)

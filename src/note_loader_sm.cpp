@@ -9,7 +9,7 @@
 
 #include <format>
 #include <fstream>
-#include <note_loader_7k.h>
+#include <note_loader.h>
 
 /* Stepmania/SSC loader. Lacks delays and speeds for now. As well as keysounds. */
 
