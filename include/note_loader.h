@@ -34,7 +34,7 @@ namespace NoteLoaderOM
     void LoadObjectsFromFile(const std::filesystem::path& filename, otoworm::ChartGroup *Out);
 }
 
-const char *LoadOJNCover(const std::filesystem::path& filename, size_t &read);
+const char *load_ojn_cover(const std::filesystem::path& filename, size_t &read);
 namespace NoteLoaderOJN
 {
     void LoadObjectsFromFile(const std::filesystem::path& filename, otoworm::ChartGroup *Out);

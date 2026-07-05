@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <filesystem>
 #include <functional>
 #include <cassert>
@@ -6,6 +7,7 @@
 #include <ChartGroup.h>
 #include <ProcessedChart.h>
 #include <converter.h>
+#include <format>
 
 
 #include "text_and_file_util.h"

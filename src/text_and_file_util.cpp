@@ -12,6 +12,8 @@
 
 #include "text_and_file_util.h"
 
+#include <cstring>
+
 #include "sha256/sha256.h"
 
 namespace otoworm::util

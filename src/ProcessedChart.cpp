@@ -1,9 +1,12 @@
+#include <algorithm>
+
 #include "rmath.h"
 
 #include <ChartGroup.h>
 #include <ProcessedChart.h>
 
 #include <cassert>
+#include <cmath>
 
 // CfgVar DebugMeasurePosGen("MeasurePosGen", "Debug");
 
@@ -99,12 +102,12 @@ namespace otoworm
                 if (change_time < 0)
                     continue;
 
-                const auto Speedvalue = unmodified.section_value(change_time) * Change->value;
+                const auto speedvalue = unmodified.section_value(change_time) * Change->value;
 
                 TimingSegment v_speed;
 
                 v_speed.time = change_time;
-                v_speed.value = Speedvalue;
+                v_speed.value = speedvalue;
 
                 speed.push_back(v_speed);
             }

@@ -117,12 +117,12 @@ struct SliceContainer
     class OsumaniaChartInfo : public ChartInfo
     {
     public:
-        float hp, od;
+        float hp, overall_difficulty;
         OsumaniaChartInfo()
         {
             type = CC_OSUMANIA;
             hp = 5;
-            od = 5;
+            overall_difficulty = 5;
         }
     };
 

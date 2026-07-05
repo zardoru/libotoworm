@@ -6,6 +6,7 @@
 #include "rmath.h"
 #include "text_and_file_util.h"
 #include <ChartGroup.h>
+#include <cmath>
 #include <converter.h>
 
 class BMSConverter : public RowifiedChart {
@@ -98,12 +99,12 @@ class BMSConverter : public RowifiedChart {
 				const auto duration = Restbpm->time - T->time;
 				const auto bps_at_stop = Restbpm->value;
 				// We need to know how long in beats this stop lasts for bps_at_stop.
-				const auto StopBMSdurationbeats = bps_at_stop * duration;
+				const auto stop_bm_sdurationbeats = bps_at_stop * duration;
 				// Now the duration in BMS stops..
-				const int StopdurationBMS = round(StopBMSdurationbeats * 48.0);
+				const int stopduration_bms = round(stop_bm_sdurationbeats * 48.0);
 
 				// Check redundant stops.
-				const auto index = get_index_for_value(stops, StopdurationBMS);
+				const auto index = get_index_for_value(stops, stopduration_bms);
 
 				const auto measure_for_event = get_measure_from_beat(beat);
 				resize_timing_measures(measure_for_event);

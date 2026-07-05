@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "rmath.h"
 
 #include "text_and_file_util.h"
@@ -5,6 +7,7 @@
 
 #include <numeric>
 #include <cassert>
+#include <cmath>
 #include <ranges>
 
 

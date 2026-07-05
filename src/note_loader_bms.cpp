@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <filesystem>
 #include <rmath.h>
 
@@ -17,6 +18,7 @@
 #include <functional>
 #include <utility>
 #include <cassert>
+#include <cstring>
 
 /*
 	Source for implemented commands:
@@ -308,13 +310,13 @@ namespace NoteLoaderBMS
         {
             for_all_events_in_channel([&](const BMSEvent ev, const int Measure)
             {
-                const double Beat = beat_from_measure_fraction(Measure, ev.fraction);
-                const double StopTimeBeats = stops_list[ev.event] / 48;
-                const double SectionValueStop = timing.section_value(Beat);
-                const double SPBSection = spb(SectionValueStop);
-                const double StopDuration = StopTimeBeats * SPBSection; // A value of 1 is... a 48th of a beat.
+                const double beat = beat_from_measure_fraction(Measure, ev.fraction);
+                const double stop_time_beats = stops_list[ev.event] / 48;
+                const double section_value_stop = timing.section_value(beat);
+                const double spb_section = spb(section_value_stop);
+                const double stop_duration = stop_time_beats * spb_section; // A value of 1 is... a 48th of a beat.
 
-                chart->transient->stops.push_back(TimingSegment(Beat, StopDuration));
+                chart->transient->stops.push_back(TimingSegment(beat, stop_duration));
             }, bms::channel::stops);
         }
 

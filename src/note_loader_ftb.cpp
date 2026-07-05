@@ -6,6 +6,7 @@
 
 #include <fstream>
 #include <ChartGroup.h>
+#include <cstring>
 #include <note_loader.h>
 #include "text_and_file_util.h"
 

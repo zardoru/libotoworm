@@ -1,10 +1,12 @@
 #include "rmath.h"
 
 #include <ChartGroup.h>
+#include <cmath>
 #include <note_loader.h>
 
 #include <format>
 #include <fstream>
+#include <math.h>
 #include <regex>
 #include <sstream>
 #include "text_and_file_util.h"
@@ -271,28 +273,28 @@ class OsumaniaLoader
 
 
 
-			const auto Whole = floor(TotalMeasuresThisSection);
-			const auto Fraction = TotalMeasuresThisSection - Whole;
+			const auto whole = floor(TotalMeasuresThisSection);
+			const auto fraction = TotalMeasuresThisSection - whole;
 
 			// Add the measures.
-			for (auto k = 0; k < Whole; k++)
+			for (auto k = 0; k < whole; k++)
 			{
 				Measure Msr;
 				Msr.length = i->measure_len;
 				chart->transient->measures.push_back(Msr);
 			}
 
-			if (Fraction > 0)
+			if (fraction > 0)
 			{
-				const auto dur_secs = Fraction * i->measure_len * spb(i->value);
+				const auto dur_secs = fraction * i->measure_len * spb(i->value);
 				if (dur_secs > LINE_REMOVE_THRESHOLD) {
-					Measure Msr;
-					Msr.length = Fraction * (i)->measure_len;
-					chart->transient->measures.push_back(Msr);
+					Measure msr;
+					msr.length = fraction * (i)->measure_len;
+					chart->transient->measures.push_back(msr);
 				}
 				else {
 					if (!chart->transient->measures.empty())
-						chart->transient->measures.back().length += Fraction * i->measure_len;
+						chart->transient->measures.back().length += fraction * i->measure_len;
 				}
 			}
 
@@ -312,7 +314,7 @@ class OsumaniaLoader
 				double Beat;
 				double CurrentBeat = 0; // Lower bound of this measure
 
-				if (!isnan(i->start)) {
+				if (!::isnan(i->start)) {
                     Beat = quantize_beat(BPS.integrate_to_time(i->start));
 				} else {
 				    if (isnan(i->end_time))
@@ -508,7 +510,7 @@ public:
 		}
 		else if (Command == "OverallDifficulty")
 		{
-			info->od = latof(Content);
+			info->overall_difficulty = latof(Content);
 		}
 	}
 

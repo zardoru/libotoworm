@@ -2,6 +2,7 @@
 #include <fstream>
 #include <rmath.h>
 #include <ChartGroup.h>
+#include <cmath>
 #include <ProcessedChart.h>
 #include "text_and_file_util.h"
 

@@ -1,4 +1,7 @@
+#include <algorithm>
+#include <cstring>
 #include <filesystem>
+#include <format>
 #include <rmath.h>
 #include <utf8.h>
 #include <fstream>
@@ -362,7 +365,7 @@ bool is_valid_ojn(std::fstream& filein, OjnHeader* Head)
     return strcmp(Head->signature, "ojn") == 0;
 }
 
-const char* LoadOJNCover(const std::filesystem::path& filename, size_t& read)
+const char* load_ojn_cover(const std::filesystem::path& filename, size_t& read)
 {
     std::fstream filein(filename.string(), std::ios::binary | std::ios::in);
     OjnHeader Head = {};
@@ -406,20 +409,20 @@ void NoteLoaderOJN::LoadObjectsFromFile(const std::filesystem::path& filename, C
         throw std::runtime_error(s);
     }
 
-    std::string vArtist;
-    std::string vName;
-    std::string Noter;
+    std::string v_artist;
+    std::string v_name;
+    std::string noter;
     /*
         These are the only values we display, so we should clean them up so that nobody cries.
         Of course, the right thing to do would be to iconv these, but unless
         I implement some way of detecting encodings, this is the best we can do in here.
     */
-    utf8::replace_invalid(Head.artist, Head.artist + 32, std::back_inserter(vArtist));
-    utf8::replace_invalid(Head.title, Head.title + 64, std::back_inserter(vName));
-    utf8::replace_invalid(Head.noter, Head.noter + 32, std::back_inserter(Noter));
+    utf8::replace_invalid(Head.artist, Head.artist + 32, std::back_inserter(v_artist));
+    utf8::replace_invalid(Head.title, Head.title + 64, std::back_inserter(v_name));
+    utf8::replace_invalid(Head.noter, Head.noter + 32, std::back_inserter(noter));
 
-    Out->artist = vArtist;
-    Out->title = vName;
+    Out->artist = v_artist;
+    Out->title = v_name;
     Out->song_filename = Head.ojm_file;
 
     for (auto i = 0; i < 3; i++)
@@ -448,7 +451,7 @@ void NoteLoaderOJN::LoadObjectsFromFile(const std::filesystem::path& filename, C
         chart->level = Head.level[i];
 
         chart->meta.emplace();
-        chart->meta->author = Noter;
+        chart->meta->author = noter;
         chart->transient->stage_file = locale::wstring_to_utf8(filename.filename().wstring());
 
         ctx.S = Out;
