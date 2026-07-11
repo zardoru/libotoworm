@@ -219,7 +219,7 @@ namespace otoworm
                     auto VerticalPosition = out.speeds.integrate_to_time(NewNote.get_start_time());
                     auto HoldEndPosition = out.speeds.integrate_to_time(NewNote.get_end_time());
 
-                    // if upscroll change minus for plus as well as matrix at screengameplay7k
+                    // if upscroll change minus for plus as well as matrix at screengameplay
                     NewNote.assign_position(VerticalPosition, HoldEndPosition);
 
                     // Okay, now we want to know what fraction of a beat we're dealing with
