@@ -120,7 +120,7 @@ public:
     float BPM;
     TimingData timing;
 
-    void read_packages(OjnHeader& header, const int difficulty_index, std::fstream& ojnfile)
+    void read_packages(OjnHeader& header, const int difficulty_index, std::istream& ojnfile)
     {
         // Reserve measures.
         measures.resize(header.measure_count[difficulty_index] + 1);
@@ -351,7 +351,7 @@ public:
 };
 
 
-bool is_valid_ojn(std::fstream& filein, OjnHeader* Head)
+bool is_valid_ojn(std::istream& filein, OjnHeader* Head)
 {
     filein.read(reinterpret_cast<char*>(Head), sizeof(OjnHeader));
 
@@ -390,23 +390,18 @@ const char* load_ojn_cover(const std::filesystem::path& filename, size_t& read)
 }
 
 
-void NoteLoaderOJN::LoadObjectsFromFile(const std::filesystem::path& filename, ChartGroup* Out)
+void NoteLoaderOJN::LoadObjectsFromStream(std::istream& filein, ChartGroup* Out)
 {
-    std::fstream filein(filename, std::ios::in | std::ios::binary);
-
     OjnHeader Head = {};
-    auto ufn = locale::wstring_to_utf8(filename.wstring());
 
     if (!filein)
     {
-        auto s = std::format("NoteLoaderOJN: {} could not be opened\n", ufn.c_str());
-        throw std::runtime_error(s);
+        throw std::runtime_error("NoteLoaderOJN: input stream is not readable.");
     }
 
     if (!is_valid_ojn(filein, &Head))
     {
-        auto s = std::format("NoteLoaderOJN: {} is not a valid OJN.\n", ufn.c_str());
-        throw std::runtime_error(s);
+        throw std::runtime_error("NoteLoaderOJN: input stream is not a valid OJN.");
     }
 
     std::string v_artist;
@@ -452,7 +447,6 @@ void NoteLoaderOJN::LoadObjectsFromFile(const std::filesystem::path& filename, C
 
         chart->meta.emplace();
         chart->meta->author = noter;
-        chart->transient->stage_file = locale::wstring_to_utf8(filename.filename().wstring());
 
         ctx.S = Out;
         filein.seekg(Head.note_offset[i]);
@@ -460,7 +454,6 @@ void NoteLoaderOJN::LoadObjectsFromFile(const std::filesystem::path& filename, C
         chart->duration = Head.time[i];
         chart->meta->name = DifficultyNames[i];
         chart->channels = 7;
-        chart->meta->path = filename;
         chart->has_no_audio_stream = true;
         ctx.BPM = Head.bpm;
 

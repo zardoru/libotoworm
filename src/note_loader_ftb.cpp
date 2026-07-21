@@ -5,12 +5,70 @@
 #include <future>
 
 #include <fstream>
+#include <istream>
 #include <ChartGroup.h>
 #include <cstring>
 #include <note_loader.h>
 #include "text_and_file_util.h"
 
 using namespace otoworm;
+
+namespace
+{
+    voidpf ZCALLBACK open_stream(voidpf opaque, const void*, int)
+    {
+        return opaque;
+    }
+
+    uLong ZCALLBACK read_stream(voidpf, voidpf stream, void* buffer, uLong size)
+    {
+        auto& input = *static_cast<std::istream*>(stream);
+        input.read(static_cast<char*>(buffer), static_cast<std::streamsize>(size));
+        return static_cast<uLong>(input.gcount());
+    }
+
+    ZPOS64_T ZCALLBACK tell_stream(voidpf, voidpf stream)
+    {
+        const auto position = static_cast<std::istream*>(stream)->tellg();
+        return position == std::streampos(-1) ? 0 : static_cast<ZPOS64_T>(position);
+    }
+
+    long ZCALLBACK seek_stream(voidpf, voidpf stream, ZPOS64_T offset, int origin)
+    {
+        auto& input = *static_cast<std::istream*>(stream);
+        input.clear();
+
+        const auto direction = origin == ZLIB_FILEFUNC_SEEK_CUR ? std::ios::cur
+            : origin == ZLIB_FILEFUNC_SEEK_END ? std::ios::end
+            : std::ios::beg;
+        input.seekg(static_cast<std::streamoff>(offset), direction);
+        return input ? 0 : -1;
+    }
+
+    int ZCALLBACK close_stream(voidpf, voidpf)
+    {
+        return 0;
+    }
+
+    int ZCALLBACK stream_error(voidpf, voidpf stream)
+    {
+        return static_cast<std::istream*>(stream)->bad();
+    }
+
+    zlib_filefunc64_def stream_file_functions(std::istream& input)
+    {
+        return {
+            open_stream,
+            read_stream,
+            nullptr,
+            tell_stream,
+            seek_stream,
+            close_stream,
+            stream_error,
+            &input,
+        };
+    }
+}
 
 /*
     This is pretty much the simplest possible loader.
@@ -88,43 +146,38 @@ void load_ftb_from_string(std::string s, Chart *chart)
 	chart->level = static_cast<float>(cnt) / chart->duration;
 }
 
-void NoteLoaderFTB::load_charts_from_file(const std::filesystem::path& filename, ChartGroup *out)
+void NoteLoaderFTB::load_charts_from_stream(std::istream& input, ChartGroup *out)
 {
-	auto input = unzOpen(filename.string().c_str());
+    auto file_functions = stream_file_functions(input);
+	auto archive = unzOpen2_64(&input, &file_functions);
 
-    if (!input)
+    if (!archive)
     {
         return;
     }
 
-	// whatever__stuff.ext -> whatever
-	auto filestr = filename.filename().replace_extension("").string();
-	auto songname = filestr.substr(0, filestr.find_last_of("_"));
-
-	if (unzGoToFirstFile(input) == UNZ_OK) {
+	if (unzGoToFirstFile(archive) == UNZ_OK) {
 		do {
 			unz_file_info info;
 			char full_filename[1024];
 
 			if (unzGetCurrentFileInfo(
-				input,
+					archive,
 				&info,
 				full_filename,
 				1024,
 				NULL, 0, NULL, 0) == UNZ_OK) {
 				auto name = std::string(full_filename, strchr(full_filename, '.'));
-				if (unzOpenCurrentFile(input) == UNZ_OK) {
+				if (unzOpenCurrentFile(archive) == UNZ_OK) {
 					auto diff = std::make_unique<Chart>();
 
 					// read file
 					auto len = info.uncompressed_size;
 					std::vector<uint8_t> data(len+1);
-					unzReadCurrentFile(input, data.data(), len);
+					unzReadCurrentFile(archive, data.data(), len);
 
 					// read file into difficulty
 					diff->meta.emplace();
-					diff->meta->path = filename;
-					diff->meta->path.replace_extension("ft2");
 
 					diff->channels = 7;
 					diff->meta->name = name;
@@ -141,19 +194,12 @@ void NoteLoaderFTB::load_charts_from_file(const std::filesystem::path& filename,
 					if (diff->duration > 0)
 						out->charts.push_back(std::move(diff));
 
-					unzCloseCurrentFile(input);
+					unzCloseCurrentFile(archive);
 				} // opened file
 			}
 			else continue; // no file info
-		} while (unzGoToNextFile(input) == UNZ_OK);
+		} while (unzGoToNextFile(archive) == UNZ_OK);
 	}
 
-	unzClose(input);
-
-	// done with difficulties. Now metadata
-	out->song_filename = filename.filename().replace_extension("ftb");
-	out->song_preview_source = out->song_filename;
-	if (out->title.empty()) {
-		out->title = songname;
-	}
+	unzClose(archive);
 }

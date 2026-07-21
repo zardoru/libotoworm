@@ -11,6 +11,7 @@
 #include <random>
 #include <regex>
 #include <fstream>
+#include <sstream>
 #include <string_view>
 
 #include <utf8.h>
@@ -891,38 +892,33 @@ namespace NoteLoaderBMS
         return "";
     }
 
-    std::optional<bms::tree> parse_tree_from_string(
+    std::optional<bms::tree> ParseTreeFromString(
         const std::string& data,
         bms::parse_error* error)
     {
         return bms::tree::from_string(data, error);
     }
 
-    std::optional<bms::tree> parse_tree_from_file(
-        const std::filesystem::path& filename,
+    std::optional<bms::tree> ParseTreeFromStream(
+        std::istream& input,
         bms::parse_error* error)
     {
-        return bms::tree::from_file(filename, error);
+        std::ostringstream data;
+        data << input.rdbuf();
+        return bms::tree::from_string(data.str(), error);
     }
 
-    void load_chart_from_file(const std::filesystem::path& filename, ChartGroup* Out)
+    void load_chart_from_stream(std::istream& filein, ChartGroup* Out, const bool IsPMS)
     {
-        std::ifstream filein(filename);
-
         auto chart = std::make_unique<Chart>();
-        bool IsPMS = false;
 
         chart->meta.emplace();
-        chart->meta->path = filename;
         chart->transient = std::make_shared<ChartTransient>();
-        if (filename.wstring().find(L".pms") != std::wstring::npos)
-            IsPMS = true;
 
         auto Info = std::make_unique<BMSLoader>(Out, chart, IsPMS);
 
-        auto fn = locale::wstring_to_utf8(filename.wstring());
-        if (!filein.is_open())
-            throw std::runtime_error(("NoteLoaderBMS: Couldn't open file " + fn + "!").c_str());
+        if (!filein)
+            throw std::runtime_error("NoteLoaderBMS: input stream is not readable.");
 
         /*
             BMS files are separated always one file, one difficulty, so it'd make sense
@@ -1196,22 +1192,6 @@ namespace NoteLoaderBMS
             Out->subtitle = util::join(Subs, " ");
         else if (Subs.size() == 1)
             Out->subtitle = *Subs.begin();
-
-        // Okay, we didn't find a fitting subtitle, let's try something else.
-        // Get actual filename instead of full path.
-        std::string sf = locale::wstring_to_utf8(std::filesystem::path(filename).filename().wstring());
-        if (chart->meta->name.empty())
-        {
-            size_t startBracket = sf.find_first_of('[');
-            size_t endBracket = sf.find_last_of(']');
-
-            if (startBracket != std::string::npos && endBracket != std::string::npos)
-                chart->meta->name = sf.substr(startBracket + 1, endBracket - startBracket - 1);
-
-            // No brackets? Okay then, let's use the filename.
-            if (chart->meta->name.length() == 0)
-                chart->meta->name = filename.filename().replace_extension().string();
-        }
 
         Out->charts.push_back(std::move(chart));
     }

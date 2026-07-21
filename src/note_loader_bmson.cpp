@@ -72,7 +72,7 @@ namespace NoteLoaderBMSON
     class BMSONLoader
     {
         Json root;
-        std::ifstream &input;
+        std::istream& input;
         ChartGroup* song;
         std::unique_ptr<Chart> chart;
         BMSChartInfo* timing_info;
@@ -615,21 +615,13 @@ namespace NoteLoaderBMSON
         }
     public:
 
-        BMSONLoader(std::ifstream &inp, ChartGroup* out) : input(inp), timing_info(nullptr)
+        BMSONLoader(std::istream& inp, ChartGroup* out) : input(inp), timing_info(nullptr)
         {
             input >> root;
             song = out;
 
             resolution = BMSON_DEFAULT_RESOLUTION;
             current_wav = 1;
-        }
-
-        void set_filename(std::filesystem::path fn) const
-        {
-            chart->meta->path = std::move(fn);
-			const auto fx = chart->meta->path;
-            if (chart->meta->name.empty())
-                chart->meta->name = locale::wstring_to_utf8(fx.filename().replace_extension("").wstring());
         }
 
         void add_notes_to_chart()
@@ -708,12 +700,9 @@ namespace NoteLoaderBMSON
         }
     };
 
-    void load_bmson_file(const std::filesystem::path& filename, ChartGroup* Out)
+    void load_bmson_stream(std::istream& input, ChartGroup* Out)
     {
-		std::ifstream filein(filename);
-
-        BMSONLoader bmson(filein, Out);
+        BMSONLoader bmson(input, Out);
         bmson.load();
-        bmson.set_filename(filename);
     }
 }

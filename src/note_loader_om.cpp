@@ -823,14 +823,12 @@ public:
 		}
 	}
 
-	void load_from_file(const std::filesystem::path& path)
+	void load_from_stream(std::istream& filein)
     {
-		std::ifstream filein (path, std::ios::in);
-
 		std::regex versionfmt("osu file format v(\\d+)");
 
-		if (!filein.is_open())
-			throw OsuManiaLoaderException("Could not open file.");
+		if (!filein)
+			throw OsuManiaLoaderException("Input stream is not readable.");
 
 	    info = std::make_shared<OsumaniaChartInfo>();
 		chart = std::make_unique<Chart>();
@@ -839,7 +837,6 @@ public:
 		chart->transient = transient;
 		chart->transient->specialized_info = info;
         chart->meta.emplace();
-		chart->meta->path = path;
 		
 		/*
 			Just like BMS, osu!mania charts have timing data separated by files
@@ -945,9 +942,9 @@ public:
 };
 
 
-void NoteLoaderOM::LoadObjectsFromFile(const std::filesystem::path& filename, ChartGroup *Out)
+void NoteLoaderOM::LoadObjectsFromStream(std::istream& input, ChartGroup *Out)
 {
     OsumaniaLoader Info(Out);
 
-	Info.load_from_file(filename);
+	Info.load_from_stream(input);
 }

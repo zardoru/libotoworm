@@ -3,6 +3,7 @@
 #include <text_and_file_util.h>
 
 #include <array>
+#include <fstream>
 
 using namespace otoworm;
 
@@ -86,20 +87,30 @@ namespace
     struct loader_entry
     {
         std::wstring_view extension;
-        void (*load)(const std::filesystem::path&, ChartGroup*);
+        void (*load)(std::istream&, ChartGroup*);
     };
 
+    void load_bms(std::istream& input, ChartGroup* group)
+    {
+        NoteLoaderBMS::load_chart_from_stream(input, group);
+    }
+
+    void load_pms(std::istream& input, ChartGroup* group)
+    {
+        NoteLoaderBMS::load_chart_from_stream(input, group, true);
+    }
+
     constexpr auto loaders = std::array{
-        loader_entry{L".bms", NoteLoaderBMS::load_chart_from_file},
-        loader_entry{L".bme", NoteLoaderBMS::load_chart_from_file},
-        loader_entry{L".bml", NoteLoaderBMS::load_chart_from_file},
-        loader_entry{L".pms", NoteLoaderBMS::load_chart_from_file},
-        loader_entry{L".sm", NoteLoaderSM::LoadObjectsFromFile},
-        loader_entry{L".osu", NoteLoaderOM::LoadObjectsFromFile},
-        loader_entry{L".ft2", NoteLoaderFTB::load_charts_from_file},
-        loader_entry{L".ojn", NoteLoaderOJN::LoadObjectsFromFile},
-        loader_entry{L".ssc", NoteLoaderSSC::LoadObjectsFromFile},
-        loader_entry{L".bmson", NoteLoaderBMSON::load_bmson_file},
+        loader_entry{L".bms", load_bms},
+        loader_entry{L".bme", load_bms},
+        loader_entry{L".bml", load_bms},
+        loader_entry{L".pms", load_pms},
+        loader_entry{L".sm", NoteLoaderSM::LoadObjectsFromStream},
+        loader_entry{L".osu", NoteLoaderOM::LoadObjectsFromStream},
+        loader_entry{L".ft2", NoteLoaderFTB::load_charts_from_stream},
+        loader_entry{L".ojn", NoteLoaderOJN::LoadObjectsFromStream},
+        loader_entry{L".ssc", NoteLoaderSSC::LoadObjectsFromStream},
+        loader_entry{L".bmson", NoteLoaderBMSON::load_bmson_stream},
     };
 }
 
@@ -119,14 +130,42 @@ std::shared_ptr<ChartGroup> otoworm::load_song_from_file(std::filesystem::path f
         if (extension != loader.extension)
             continue;
 
-        loader.load(filename, group.get());
+        std::ifstream input(filename, std::ios::binary);
+        if (!input)
+            throw std::runtime_error(std::format("couldn't open {} for reading", filename.string()));
+
+        loader.load(input, group.get());
+
+        if (extension == L".ft2")
+        {
+            auto audio_filename = filename.filename();
+            audio_filename.replace_extension("ftb");
+            group->song_filename = audio_filename;
+            group->song_preview_source = audio_filename;
+
+            if (group->title.empty())
+            {
+                const auto stem = filename.stem().string();
+                group->title = stem.substr(0, stem.find_last_of("_"));
+            }
+        }
 
         const auto hash = util::get_sha256_for_file(filename);
         auto chart_index = 0;
         for (auto& chart : group->charts)
         {
+            if (chart->meta)
+            {
+                chart->meta->path = filename;
+                if (chart->meta->name.empty())
+                    chart->meta->name = filename.stem().string();
+            }
+
             if (!chart->transient)
                 continue;
+
+            if (extension == L".ojn")
+                chart->transient->stage_file = locale::wstring_to_utf8(filename.filename().wstring());
 
             chart->transient->file_hash = hash;
             if (chart->transient->index_in_file == -1)

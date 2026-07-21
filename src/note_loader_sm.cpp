@@ -411,10 +411,8 @@ SpeedData parse_scrolls(std::string line)
     return Ret;
 }
 
-void NoteLoaderSSC::LoadObjectsFromFile(const std::filesystem::path &filename, ChartGroup *out)
+void NoteLoaderSSC::LoadObjectsFromStream(std::istream& filein, ChartGroup *out)
 {
-    std::ifstream filein(filename.string());
-
     TimingData BPMData;
     TimingData StopsData;
     TimingData WarpsData;
@@ -426,8 +424,8 @@ void NoteLoaderSSC::LoadObjectsFromFile(const std::filesystem::path &filename, C
 
     std::unique_ptr<Chart> chart = nullptr;
 
-    if (!filein.is_open())
-        throw std::runtime_error(std::format("couldn't open {} for reading", filename.c_str()).c_str());
+    if (!filein)
+        throw std::runtime_error("input stream is not readable");
 
     std::string Banner;
 
@@ -564,7 +562,6 @@ void NoteLoaderSSC::LoadObjectsFromFile(const std::filesystem::path &filename, C
 
             chart->offset = -Offset;
             chart->duration = 0;
-            chart->meta->path = filename;
             chart->transient->specialized_info = std::make_shared<StepmaniaChartInfo>();
             chart->transient->stage_file = Banner;
 
@@ -673,10 +670,8 @@ void WarpifyTiming(Chart* chart, TimingData& timing)
     }
 }
 
-void NoteLoaderSM::LoadObjectsFromFile(const std::filesystem::path &filename, ChartGroup *out)
+void NoteLoaderSM::LoadObjectsFromStream(std::istream& filein, ChartGroup *out)
 {
-	std::ifstream filein (filename, std::ios::in);
-
     TimingData BPMData;
     TimingData StopsData;
     double Offset = 0;
@@ -684,8 +679,8 @@ void NoteLoaderSM::LoadObjectsFromFile(const std::filesystem::path &filename, Ch
     auto chart = std::make_unique<Chart>();
     chart->meta.emplace();
 
-    if (!filein.is_open())
-        throw std::runtime_error(std::format("couldn't open {} for reading", filename.string()).c_str());
+    if (!filein)
+        throw std::runtime_error("input stream is not readable");
 
     std::string Banner;
 
@@ -739,7 +734,6 @@ void NoteLoaderSM::LoadObjectsFromFile(const std::filesystem::path &filename, Ch
             chart->transient->stops = StopsData;
             chart->offset = -Offset;
             chart->duration = 0;
-            chart->meta->path = filename;
             chart->transient->specialized_info = std::make_shared<StepmaniaChartInfo>();
             chart->transient->stage_file = Banner;
             convert_stops_to_warps(chart.get(), chartTiming);
