@@ -183,7 +183,7 @@ using AABBd = TRect<double>;
 
 template
         <class T>
-struct TColorRGB
+struct ColorRGBA_
 {
     union
     {
@@ -192,16 +192,16 @@ struct TColorRGB
     };
 };
 
-using ColorRGB = TColorRGB<float>;
-using ColorRGBd = TColorRGB<double>;
+using ColorRGBA = ColorRGBA_<float>;
+using ColorRGBAd = ColorRGBA_<double>;
 
 namespace Color
 {
-    extern const ColorRGB White;
-    extern const ColorRGB Black;
-    extern const ColorRGB Red;
-    extern const ColorRGB Green;
-    extern const ColorRGB Blue;
+    extern const ColorRGBA white;
+    extern const ColorRGBA black;
+    extern const ColorRGBA red;
+    extern const ColorRGBA green;
+    extern const ColorRGBA blue;
 }
 
 int lcm(const std::vector<int> &Set);
