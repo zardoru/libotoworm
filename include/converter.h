@@ -16,14 +16,14 @@ public:
 
     struct Measure
     {
-        std::vector<Event> objects[otoworm::MAX_CHANNELS];
-        std::vector<Event> ln_objects[otoworm::MAX_CHANNELS];
+        std::vector<Event> objects[otoworm::max_channels];
+        std::vector<Event> ln_objects[otoworm::max_channels];
         std::vector<Event> bgm_events;
     };
 
 private:
-    bool quantizing;
-    std::vector<double> measure_start_beat;
+    bool quantizing_;
+    std::vector<double> measure_start_beat_;
 
 protected:
     std::function <double(double)> quantize_function;
@@ -38,7 +38,7 @@ protected:
     void process_bgm_events();
     void process_measures();
 
-    std::vector<Measure> measures_;
+    std::vector<Measure> measures;
     otoworm::TimingData bps;
 
     otoworm::Chart *parent{};

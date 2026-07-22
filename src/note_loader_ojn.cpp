@@ -17,7 +17,7 @@ using namespace otoworm;
 #define BPM_CHANNEL 10
 #define AUTOPLAY_CHANNEL 9
 
-const char* DifficultyNames[] = {"EX", "NX", "HX"};
+const char* difficulty_names[] = {"EX", "NX", "HX"};
 
 // based from the ojn documentation at
 // http://open2jam.wordpress.com/the-ojn-documentation/
@@ -103,27 +103,27 @@ class OjnLoadDifficultyContext
 private:
     double get_beat_for_measure(const int measure)
     {
-        double Out = 0;
+        double out = 0;
 
         for (int i = 0; i < measure; i++)
         {
-            Out += measures[i].length;
+            out += measures_[i].length;
         }
 
-        return Out;
+        return out;
     }
 
-    std::vector<OjnMeasure> measures;
+    std::vector<OjnMeasure> measures_;
 
 public:
-    ChartGroup* S;
-    float BPM;
+    ChartGroup* s;
+    float bpm;
     TimingData timing;
 
     void read_packages(OjnHeader& header, const int difficulty_index, std::istream& ojnfile)
     {
         // Reserve measures.
-        measures.resize(header.measure_count[difficulty_index] + 1);
+        measures_.resize(header.measure_count[difficulty_index] + 1);
 
         for (size_t package = 0U; package < header.package_count[difficulty_index]; ++package)
         {
@@ -139,21 +139,21 @@ public:
                 ojnfile.read(reinterpret_cast<char*>(&ojn_package), sizeof(OjnPackage));
 
                 // this happens sometimes, oddly -az
-                if (package_header.measure >= measures.size())
+                if (package_header.measure >= measures_.size())
                 {
-                    measures.resize(package_header.measure + 1);
+                    measures_.resize(package_header.measure + 1);
                 }
 
                 switch (package_header.channel)
                 {
                 case 0: // fractional measure
-                    measures[package_header.measure].length = 4 * ojn_package.float_value;
+                    measures_[package_header.measure].length = 4 * ojn_package.float_value;
                     break;
                 case 1: // BPM change
                     o2evt.f_value = ojn_package.float_value;
                     o2evt.channel = BPM_CHANNEL;
                     o2evt.fraction = fraction;
-                    measures[package_header.measure].events.push_back(o2evt);
+                    measures_[package_header.measure].events.push_back(o2evt);
                     break;
                 case 2: // note events (enginechannel = PackageHeader.channel - 2)
                 case 3:
@@ -167,7 +167,7 @@ public:
                     o2evt.channel = package_header.channel - 2;
                     o2evt.int_value = ojn_package.note_value;
                     o2evt.note_kind = ojn_package.type;
-                    measures[package_header.measure].events.push_back(o2evt);
+                    measures_[package_header.measure].events.push_back(o2evt);
                     break;
                 default: // autoplay notes
                     if (ojn_package.note_value == 0) continue;
@@ -175,7 +175,7 @@ public:
                     o2evt.fraction = fraction;
                     o2evt.int_value = ojn_package.note_value;
                     o2evt.note_kind = ojn_package.type;
-                    measures[package_header.measure].events.push_back(o2evt);
+                    measures_[package_header.measure].events.push_back(o2evt);
                     break;
                 }
             }
@@ -186,9 +186,9 @@ public:
     void clean_invalid_events()
     {
         auto current_measure = 0;
-        OjnExpandedPackage prevIter[7] = {-1, -1, -1, -1};
+        OjnExpandedPackage prev_iter[7] = {-1, -1, -1, -1};
 
-        for (auto& measure : measures)
+        for (auto& measure : measures_)
         {
             // Sort events. This is very important, since we assume events are sorted!
             std::sort(measure.events.begin(), measure.events.end());
@@ -197,9 +197,9 @@ public:
             {
                 if (event.channel < AUTOPLAY_CHANNEL)
                 {
-                    if (prevIter[event.channel].channel != -1) // There is a previous event
+                    if (prev_iter[event.channel].channel != -1) // There is a previous event
                     {
-                        if (prevIter[event.channel].note_kind == 2 &&
+                        if (prev_iter[event.channel].note_kind == 2 &&
                             (event.note_kind == 0 || event.note_kind == 2)) // This note or hold head is in between holds
                         {
                             event.channel = AUTOPLAY_CHANNEL;
@@ -207,7 +207,7 @@ public:
                             continue;
                         }
 
-                        if (prevIter[event.channel].note_kind != 2 && // Hold tail without ongoing hold
+                        if (prev_iter[event.channel].note_kind != 2 && // Hold tail without ongoing hold
                             event.note_kind == 3)
                         {
                             event.channel = AUTOPLAY_CHANNEL;
@@ -216,7 +216,7 @@ public:
                         }
                     }
 
-                    prevIter[event.channel] = event;
+                    prev_iter[event.channel] = event;
                 }
             }
 
@@ -227,16 +227,16 @@ public:
     void write_timing_data(Chart* chart)
     {
         auto current_measure = 0;
-        for (const auto& Measure : measures)
+        for (const auto& measure : measures_)
         {
             const auto base_beat = get_beat_for_measure(current_measure);
 
             chart->transient->measures.emplace_back();
 
             // All fractional measure events were already handled at read time.
-            chart->transient->measures[current_measure].length = Measure.length;
+            chart->transient->measures[current_measure].length = measure.length;
 
-            for (auto evt : Measure.events)
+            for (auto evt : measure.events)
             {
                 if (evt.channel != BPM_CHANNEL) continue; // These are the only ones we directly handle.
 
@@ -264,7 +264,7 @@ public:
         // A few of the charts already have set BPMs at beat 0, so we only need to add information if it's missing.
         if (timing.empty() || timing[0].time > 0)
         {
-            const TimingSegment seg(0, BPM);
+            const TimingSegment seg(0, bpm);
             timing.push_back(seg);
 
             // Since events and measures are ordered already, there's no need to sort
@@ -275,36 +275,36 @@ public:
 
     // Based off the O2JAM method at
     // https://github.com/open2jamorg/open2jam/blob/master/parsers/src/org/open2jam/parsers/EventList.java
-    void write_to_chart(Chart* Out)
+    void write_to_chart(Chart* out)
     {
         // First, we sort and clear up invalid events.
         clean_invalid_events();
 
         // Then we need to have just as many measures going out as we've got in here.
-        Out->transient->measures.reserve(measures.size());
+        out->transient->measures.reserve(measures_.size());
 
         // Now to output, we need to process BPM changes and fractional measures.
-        write_timing_data(Out);
+        write_timing_data(out);
 
         // Now, we can process notes and long notes.
-        write_note_data(Out);
+        write_note_data(out);
     }
 
-    void write_note_data(Chart* Out)
+    void write_note_data(Chart* out)
     {
-        auto CurrentMeasure = 0;
+        auto current_measure = 0;
         double pending_lns[7] = {};
         int32_t pending_ln_sound[7] = {};
 
-        for (auto msr : measures)
+        for (auto msr : measures_)
         {
-            const auto MeasureBaseBeat = get_beat_for_measure(CurrentMeasure);
+            const auto measure_base_beat = get_beat_for_measure(current_measure);
 
             for (auto evt : msr.events)
             {
                 if (evt.channel == BPM_CHANNEL) continue;
-                const auto Beat = MeasureBaseBeat + evt.fraction * 4;
-                const auto time = timing.integrate_beats_to_seconds(0, Beat);
+                const auto beat = measure_base_beat + evt.fraction * 4;
+                const auto time = timing.integrate_beats_to_seconds(0, beat);
 
                 if (evt.note_kind % 8 > 3) // Okay... This is obscure. Big thanks to open2jam.
                     evt.int_value += 1000;
@@ -315,7 +315,7 @@ public:
 
                     snd.sound = evt.int_value;
                     snd.time = time;
-                    Out->transient->bgm_events.push_back(snd);
+                    out->transient->bgm_events.push_back(snd);
                 }
                 else // A note! In this case, we already 'normalized' O2Jam channels into raindrop channels.
                 {
@@ -329,7 +329,7 @@ public:
                     switch (evt.note_kind)
                     {
                     case 0:
-                        Out->transient->measures[CurrentMeasure].notes[evt.channel].push_back(note);
+                        out->transient->measures[current_measure].notes[evt.channel].push_back(note);
                         break;
                     case 2:
                         pending_lns[evt.channel] = time;
@@ -339,21 +339,21 @@ public:
                         note.start = pending_lns[evt.channel];
                         note.end_time = time;
                         note.sound = pending_ln_sound[evt.channel];
-                        Out->transient->measures[CurrentMeasure].notes[evt.channel].push_back(note);
+                        out->transient->measures[current_measure].notes[evt.channel].push_back(note);
                         break;
                     default: ;
                     }
                 }
             }
-            CurrentMeasure++;
+            current_measure++;
         }
     }
 };
 
 
-bool is_valid_ojn(std::istream& filein, OjnHeader* Head)
+bool is_valid_ojn(std::istream& filein, OjnHeader* head)
 {
-    filein.read(reinterpret_cast<char*>(Head), sizeof(OjnHeader));
+    filein.read(reinterpret_cast<char*>(head), sizeof(OjnHeader));
 
     if (!filein)
     {
@@ -362,13 +362,13 @@ bool is_valid_ojn(std::istream& filein, OjnHeader* Head)
         return false;
     }
 
-    return strcmp(Head->signature, "ojn") == 0;
+    return strcmp(head->signature, "ojn") == 0;
 }
 
 const char* load_ojn_cover(const std::filesystem::path& filename, size_t& read)
 {
     std::fstream filein(filename.string(), std::ios::binary | std::ios::in);
-    OjnHeader Head = {};
+    OjnHeader head = {};
     char* out;
 
     if (!filein)
@@ -377,29 +377,29 @@ const char* load_ojn_cover(const std::filesystem::path& filename, size_t& read)
         return 0;
     }
 
-    if (!is_valid_ojn(filein, &Head))
+    if (!is_valid_ojn(filein, &head))
         return "";
 
-    out = new char[Head.cover_size];
+    out = new char[head.cover_size];
 
-    filein.seekg(Head.cover_offset, std::ios::beg);
-    filein.read(out, Head.cover_size);
-    read = Head.cover_size;
+    filein.seekg(head.cover_offset, std::ios::beg);
+    filein.read(out, head.cover_size);
+    read = head.cover_size;
 
     return out;
 }
 
 
-void NoteLoaderOJN::LoadObjectsFromStream(std::istream& filein, ChartGroup* Out)
+void NoteLoaderOJN::LoadObjectsFromStream(std::istream& filein, ChartGroup* out)
 {
-    OjnHeader Head = {};
+    OjnHeader head = {};
 
     if (!filein)
     {
         throw std::runtime_error("NoteLoaderOJN: input stream is not readable.");
     }
 
-    if (!is_valid_ojn(filein, &Head))
+    if (!is_valid_ojn(filein, &head))
     {
         throw std::runtime_error("NoteLoaderOJN: input stream is not a valid OJN.");
     }
@@ -412,13 +412,13 @@ void NoteLoaderOJN::LoadObjectsFromStream(std::istream& filein, ChartGroup* Out)
         Of course, the right thing to do would be to iconv these, but unless
         I implement some way of detecting encodings, this is the best we can do in here.
     */
-    utf8::replace_invalid(Head.artist, Head.artist + 32, std::back_inserter(v_artist));
-    utf8::replace_invalid(Head.title, Head.title + 64, std::back_inserter(v_name));
-    utf8::replace_invalid(Head.noter, Head.noter + 32, std::back_inserter(noter));
+    utf8::replace_invalid(head.artist, head.artist + 32, std::back_inserter(v_artist));
+    utf8::replace_invalid(head.title, head.title + 64, std::back_inserter(v_name));
+    utf8::replace_invalid(head.noter, head.noter + 32, std::back_inserter(noter));
 
-    Out->artist = v_artist;
-    Out->title = v_name;
-    Out->song_filename = Head.ojm_file;
+    out->artist = v_artist;
+    out->title = v_name;
+    out->song_filename = head.ojm_file;
 
     for (auto i = 0; i < 3; i++)
     {
@@ -443,29 +443,29 @@ void NoteLoaderOJN::LoadObjectsFromStream(std::istream& filein, ChartGroup* Out)
             break;
         }
 
-        chart->level = Head.level[i];
+        chart->level = head.level[i];
 
         chart->meta.emplace();
         chart->meta->author = noter;
 
-        ctx.S = Out;
-        filein.seekg(Head.note_offset[i]);
+        ctx.s = out;
+        filein.seekg(head.note_offset[i]);
 
-        chart->duration = Head.time[i];
-        chart->meta->name = DifficultyNames[i];
+        chart->duration = head.time[i];
+        chart->meta->name = difficulty_names[i];
         chart->channels = 7;
         chart->has_no_audio_stream = true;
-        ctx.BPM = Head.bpm;
+        ctx.bpm = head.bpm;
 
         /*
             The implications of this structure are interesting.
             Measures may be unordered; but events may not, if only there's one package per channel per measure.
         */
-        ctx.read_packages(Head, i, filein);
+        ctx.read_packages(head, i, filein);
 
         // Process Info... then push back difficulty.
         ctx.write_to_chart(chart.get());
         chart->transient->bps = bps_from_beat_timing(ctx.timing, chart->transient->stops, chart->offset);
-        Out->charts.push_back(std::move(chart));
+        out->charts.push_back(std::move(chart));
     }
 }

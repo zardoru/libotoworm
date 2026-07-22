@@ -20,13 +20,13 @@ static double passthrough(const double d) {
 
 
 RowifiedChart::RowifiedChart(Chart *source, const bool quantize, const bool calculate_all)
-        : quantizing(quantize), parent(source) {
+        : quantizing_(quantize), parent(source) {
     assert(source != nullptr);
 
     if (quantize)
-        quantize_function = [](auto && PH1) { return quantize_beat(std::forward<decltype(PH1)>(PH1)); };
+        quantize_function = [](auto && p_h1) { return quantize_beat(std::forward<decltype(p_h1)>(p_h1)); };
     else
-        quantize_function = [](auto && PH1) { return passthrough(std::forward<decltype(PH1)>(PH1)); };
+        quantize_function = [](auto && p_h1) { return passthrough(std::forward<decltype(p_h1)>(p_h1)); };
 
     bps = ProcessedChart::from(source).bps;
 
@@ -61,7 +61,7 @@ int RowifiedChart::get_row_count(const std::vector<Event> &event_list) {
 }
 
 bool RowifiedChart::is_quantizing_enabled() const {
-    return quantizing;
+    return quantizing_;
 }
 
 void RowifiedChart::calculate_measure_start_beat() {
@@ -69,17 +69,17 @@ void RowifiedChart::calculate_measure_start_beat() {
 
     assert(parent != nullptr);
 
-    measure_start_beat.clear();
+    measure_start_beat_.clear();
     for (const auto m : parent->transient->measures) {
         // Note: Acom. doesn't need to be quantized.
         // Only contents within measure.
-        measure_start_beat.push_back(accumulated_length);
+        measure_start_beat_.push_back(accumulated_length);
         accumulated_length += m.length;
     }
 }
 
 IFraction RowifiedChart::get_fraction_from_beat(const int measure, const double beat) const {
-    const double m_start = measure_start_beat[measure];
+    const double m_start = measure_start_beat_[measure];
     const double m_len = parent->transient->measures[measure].length;
     const double m_frac = (beat - m_start) / m_len;
     IFraction frac;
@@ -93,23 +93,23 @@ IFraction RowifiedChart::get_fraction_from_beat(const int measure, const double 
 }
 
 int RowifiedChart::get_measure_from_beat(const double beat) {
-    const auto it = std::ranges::upper_bound(measure_start_beat, quantize_function(beat));
-    auto measure = it - measure_start_beat.begin() - 1;
+    const auto it = std::ranges::upper_bound(measure_start_beat_, quantize_function(beat));
+    auto measure = it - measure_start_beat_.begin() - 1;
 
     if (measure >= 0) {
         const size_t m = measure; // eh, do we need more 2^31-1 measures? anyway shut up compiler
-        if (m < measure_start_beat.size())
+        if (m < measure_start_beat_.size())
             return measure;
     }
 
     const auto s = std::format("Beat {} (Measure {}) outside of bounds (size = {}).",
-                             beat, measure, measure_start_beat.size());
+                             beat, measure, measure_start_beat_.size());
     throw std::runtime_error(s);
 }
 
 void RowifiedChart::update_measure_size(const size_t new_size) {
-    if (measures_.size() < new_size + 1)
-        measures_.resize(new_size + 1);
+    if (measures.size() < new_size + 1)
+        measures.resize(new_size + 1);
 }
 
 void RowifiedChart::process_bgm_events() {
@@ -118,7 +118,7 @@ void RowifiedChart::process_bgm_events() {
 
         const int measure_for_event = get_measure_from_beat(beat);
         update_measure_size(measure_for_event);
-        measures_[measure_for_event].bgm_events.push_back({get_fraction_from_beat(measure_for_event, beat), bgm.sound});
+        measures[measure_for_event].bgm_events.push_back({get_fraction_from_beat(measure_for_event, beat), bgm.sound});
     }
 }
 
@@ -138,7 +138,7 @@ void RowifiedChart::process_measures() {
                     update_measure_size(measure_for_event);
 
                     const auto snd = note.sound ? note.sound : 1;
-                    measures_[measure_for_event].objects[chan].push_back(
+                    measures[measure_for_event].objects[chan].push_back(
                             {
                                     get_fraction_from_beat(measure_for_event, start_beat),
                                     snd
@@ -151,9 +151,9 @@ void RowifiedChart::process_measures() {
                     update_measure_size(measure_for_event_end);
 
                     const auto snd = note.sound ? note.sound : 1;
-                    measures_[measure_for_event].ln_objects[chan].push_back(
+                    measures[measure_for_event].ln_objects[chan].push_back(
                             {get_fraction_from_beat(measure_for_event, start_beat), snd});
-                    measures_[measure_for_event_end].ln_objects[chan].push_back(
+                    measures[measure_for_event_end].ln_objects[chan].push_back(
                             {get_fraction_from_beat(measure_for_event_end, end_beat), snd});
                 }
             }
@@ -164,4 +164,3 @@ void RowifiedChart::process_measures() {
 double RowifiedChart::get_start_bpm() const {
     return bps[0].value * 60;
 }
-

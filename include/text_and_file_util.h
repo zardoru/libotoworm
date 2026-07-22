@@ -9,10 +9,10 @@ namespace otoworm::util
     void debug_break();
     bool is_numeric(const char* s);	
 
-    time_t get_last_modified_time(std::filesystem::path Path);
-    std::string get_sha256_for_file(std::filesystem::path Filename);
+    time_t get_last_modified_time(std::filesystem::path path);
+    std::string get_sha256_for_file(std::filesystem::path filename);
     
-    void normalize_filename(std::string &S, bool removeSlash, bool noAbsolute = true);
+    void normalize_filename(std::string &s, bool remove_slash, bool no_absolute = true);
 
     std::string format(std::string str, ...);
 
@@ -41,22 +41,22 @@ namespace otoworm::util
 
 namespace otoworm::locale {
     // Convert utf8 string into std::wstring.
-    std::wstring widen(std::string Line);
+    std::wstring widen(std::string line);
 
 	// Convert system locale string into std::wstring.
-	std::wstring from_locale_str(std::string Line);
+	std::wstring from_locale_str(std::string line);
 
 	// Convert system locale string into U8.
 	std::string locale_to_u8(std::string line);
 
 	// Convert std::wstring into utf8 std::string.
-    std::string wstring_to_utf8(std::wstring Line);
+    std::string wstring_to_utf8(std::wstring line);
 
 	// Convert std::wstring into system locale std::string
-	std::string to_locale_str(std::wstring Line);
+	std::string to_locale_str(std::wstring line);
 
 	// Convert SHIFT-JIS std::string into UTF-8 std::string.
-    std::string sjis_to_u8(std::string Line);
+    std::string sjis_to_u8(std::string line);
 }
 
 std::string int_to_str(int num);

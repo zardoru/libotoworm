@@ -35,8 +35,8 @@ void Chart::reset_transient()
 uint32_t ChartTransient::get_total_note_count() const {
 	uint32_t cnt = 0;
 	for (const auto measure : measures) {
-		for (const auto & Note : measure.notes) {
-			for ([[maybe_unused]] auto note : Note) {
+		for (const auto & note : measure.notes) {
+			for ([[maybe_unused]] auto note : note) {
 				cnt++;
 			}
 		}
@@ -48,8 +48,8 @@ uint32_t ChartTransient::get_total_note_count() const {
 uint32_t ChartTransient::get_scorable_note_count() const {
 	uint32_t cnt = 0;
 	for (auto measure : measures) {
-		for (auto & Note : measure.notes) {
-			for (const auto note : Note) {
+		for (auto & note : measure.notes) {
+			for (const auto note : note) {
 				if (note.type == NK_FAKE ||
 					note.type == NK_INVISIBLE ||
 					note.type == NK_MINE)

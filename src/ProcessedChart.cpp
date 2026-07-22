@@ -12,9 +12,9 @@
 
 namespace otoworm
 {
-    ProcessedChart::ProcessedChart(const double _waitTime)
+    ProcessedChart::ProcessedChart(const double wait_time)
     {
-        wait_time = _waitTime;
+        this->wait_time = wait_time;
         has_negative_scroll = false;
         has_turntable = false;
         chart = nullptr;
@@ -22,59 +22,59 @@ namespace otoworm
 
     TimingData process_chart_speed(TimingData& bps, const double constant_user_speed)
     {
-        TimingData speed;
+        TimingData speed_data;
 
         // We're using a CMod, so further processing is pointless
         if (constant_user_speed != 0)
         {
-            speed.push_back(TimingSegment(0, constant_user_speed));
-            return speed;
+            speed_data.push_back(TimingSegment(0, constant_user_speed));
+            return speed_data;
         }
         // End CMod
 
         // Calculate velocity at time based on BPM at time
         for (const auto section : bps)
         {
-            double _speed;
+            double speed_value;
             if (section.value != 0)
             {
                 const auto spb = 1 / section.value;
-                _speed = 1 /* UNITS_PER_MEASURE */ / (spb * 4);
+                speed_value = 1 /* UNITS_PER_MEASURE */ / (spb * 4);
             }
             else
-                _speed = 0;
+                speed_value = 0;
 
             // We blindly take the bps time that had offset and drift applied.
-            speed.push_back(TimingSegment(section.time, _speed));
+            speed_data.push_back(TimingSegment(section.time, speed_value));
         }
 
         // Let first speed be not-null.
-        if (!speed.empty() && speed[0].value == 0)
+        if (!speed_data.empty() && speed_data[0].value == 0)
         {
-            for (auto i = speed.begin();
-                 i != speed.end();
+            for (auto i = speed_data.begin();
+                 i != speed_data.end();
                  ++i)
             {
                 if (i->value != 0)
-                    speed[0].value = i->value;
+                    speed_data[0].value = i->value;
             }
         }
 
-        return speed;
+        return speed_data;
     }
 
-    TimingData apply_speed_changes(TimingData speed, TimingData scroll, const double offset, const bool Reset)
+    TimingData apply_speed_changes(TimingData speed, TimingData scroll, const double offset, const bool reset)
     {
         std::ranges::sort(scroll);
 
         const auto unmodified = speed;
 
-        for (auto Change = scroll.begin();
-             Change != scroll.end();
-             ++Change)
+        for (auto change = scroll.begin();
+             change != scroll.end();
+             ++change)
         {
-            auto NextChange = (Change + 1);
-            const double change_time = Change->time + offset;
+            auto next_change = (change + 1);
+            const double change_time = change->time + offset;
 
             /*
                 Find all
@@ -87,7 +87,7 @@ namespace otoworm
             {
                 if (abs(change_time - seg.time) < 0.00001)
                 {
-                    seg.value *= Change->value;
+                    seg.value *= change->value;
                     insert = false;
                 }
             }
@@ -102,7 +102,7 @@ namespace otoworm
                 if (change_time < 0)
                     continue;
 
-                const auto speedvalue = unmodified.section_value(change_time) * Change->value;
+                const auto speedvalue = unmodified.section_value(change_time) * change->value;
 
                 TimingSegment v_speed;
 
@@ -120,7 +120,7 @@ namespace otoworm
                 after a BPM change.
             */
 
-            if (Reset) // Okay, we're an osu!mania chart, leave the resetting.
+            if (reset) // Okay, we're an osu!mania chart, leave the resetting.
                 continue;
 
             // We're not an osu!mania chart, so it's time to do what should be done.
@@ -133,14 +133,14 @@ namespace otoworm
                     // Two options, between two speed changes, or the last one. Second case, NextChange == Scrolls.end().
                     // Otherwise, just move on
                     // Last speed change
-                    if (NextChange == scroll.end())
+                    if (next_change == scroll.end())
                     {
-                        vertical_speed.value = Change->value * unmodified.section_value(vertical_speed.time);
+                        vertical_speed.value = change->value * unmodified.section_value(vertical_speed.time);
                     }
                     else
                     {
-                        if (vertical_speed.time < NextChange->time) // Between speed changes
-                            vertical_speed.value = Change->value * unmodified.section_value(vertical_speed.time);
+                        if (vertical_speed.time < next_change->time) // Between speed changes
+                            vertical_speed.value = change->value * unmodified.section_value(vertical_speed.time);
                     }
                 }
             }
@@ -152,14 +152,14 @@ namespace otoworm
 
     double ProcessedChart::get_warp_amount(const double time) const
     {
-        double wAmt = 0;
+        double w_amt = 0;
         for (const auto warp : warps)
         {
             if (warp.time < time)
-                wAmt += warp.value;
+                w_amt += warp.value;
         }
 
-        return wAmt;
+        return w_amt;
     }
 
     bool ProcessedChart::is_warping_at(const double start_time) const
@@ -198,75 +198,75 @@ namespace otoworm
         /* For all channels of this difficulty */
         for (int chan = 0; chan < diff->channels; chan++)
         {
-            int measureNr = 0;
-            auto measureBeat = 0.0;
+            int measure_nr = 0;
+            auto measure_beat = 0.0;
 
             /* For each measure of this channel */
             for (auto measure : data->measures)
             {
                 /* For each note in the measure... */
 
-                for (auto CurrentNote : measure.notes[chan])
+                for (auto current_note : measure.notes[chan])
                 {
                     /*
                         Calculate position. (Change this to TrackNote instead of processing?)
                         issue is not having the speed change data there.
                     */
-                    TrackNote NewNote;
+                    TrackNote new_note;
 
-                    NewNote.assign_note_data(CurrentNote);
+                    new_note.assign_note_data(current_note);
 
-                    auto VerticalPosition = out.speeds.integrate_to_time(NewNote.get_start_time());
-                    auto HoldEndPosition = out.speeds.integrate_to_time(NewNote.get_end_time());
+                    auto vertical_position = out.speeds.integrate_to_time(new_note.get_start_time());
+                    auto hold_end_position = out.speeds.integrate_to_time(new_note.get_end_time());
 
                     // if upscroll change minus for plus as well as matrix at screengameplay
-                    NewNote.assign_position(VerticalPosition, HoldEndPosition);
+                    new_note.assign_position(vertical_position, hold_end_position);
 
                     // Okay, now we want to know what fraction of a beat we're dealing with
                     // this way we can display colored (a la Stepmania) notes.
                     // We should do this before changing time by drift.
-                    double NoteBeat = out.bps.integrate_to_time(NewNote.get_start_time());
-                    double dBeat = NoteBeat - measureBeat; // do in relation to position from start of measure
-                    double BeatFraction = dBeat - floor(dBeat);
+                    double note_beat = out.bps.integrate_to_time(new_note.get_start_time());
+                    double d_beat = note_beat - measure_beat; // do in relation to position from start of measure
+                    double beat_fraction = d_beat - floor(d_beat);
 
-                    NewNote.assign_fraction(BeatFraction);
+                    new_note.assign_fraction(beat_fraction);
 
                     // Notes use warped time. Unwarp it.
-                    double Wamt = -out.get_warp_amount(CurrentNote.start);
-                    NewNote.add_time(Wamt);
+                    double wamt = -out.get_warp_amount(current_note.start);
+                    new_note.add_time(wamt);
 
                     // !Speed: non-constant
                     // Judgable & ! warping: Constant speed, so only add non-warped notes.
-                    if (!constant_user_speed || (NewNote.is_judgable() && !out.is_warping_at(CurrentNote.start)))
-                        out.notes[chan].push_back(NewNote);
+                    if (!constant_user_speed || (new_note.is_judgable() && !out.is_warping_at(current_note.start)))
+                        out.notes[chan].push_back(new_note);
                 }
 
-                measureNr++;
-                measureBeat += measure.length;
+                measure_nr++;
+                measure_beat += measure.length;
             }
         }
 
         // Toggle whether we can use our guarantees for optimizations or not at rendering/judge time.
         out.has_negative_scroll = false;
 
-        for (auto S : out.interpolated_speed_multipliers)
-            if (S.value < 0) out.has_negative_scroll = true;
-        for (auto S : out.speeds)
-            if (S.value < 0) out.has_negative_scroll = true;
+        for (auto s : out.interpolated_speed_multipliers)
+            if (s.value < 0) out.has_negative_scroll = true;
+        for (auto s : out.speeds)
+            if (s.value < 0) out.has_negative_scroll = true;
         return out;
     }
 
     // audio time -> chart time
     double ProcessedChart::real_to_warped_time(const double song_time) const
     {
-        auto T = song_time;
+        auto t = song_time;
         for (const auto warp : warps)
         {
-            if (warp.time <= T)
-                T += warp.value;
+            if (warp.time <= t)
+                t += warp.value;
         }
 
-        return T;
+        return t;
     }
 
     double ProcessedChart::get_bpm_at(const double time) const
@@ -288,17 +288,17 @@ namespace otoworm
     double ProcessedChart::get_speed_multiplier_at(const double time) const
     {
         // Calculate current speed value to apply.
-        const auto CurrentTime = real_to_warped_time(time);
+        const auto current_time = real_to_warped_time(time);
 
         // speedIter: first which time is greater than current
         auto speed_section = std::ranges::lower_bound(interpolated_speed_multipliers
                                                   ,
-                                                  CurrentTime
+                                                  current_time
         );
 
         double previous_value = 1;
         double current_value = 1;
-        double speed_time = CurrentTime;
+        double speed_time = current_time;
         double duration = 1;
         bool use_beat_integration = false;
 
@@ -313,8 +313,8 @@ namespace otoworm
         */
         if (speed_section != interpolated_speed_multipliers.begin())
         {
-            const auto prevSpeed = speed_section - 1;
-            previous_value = prevSpeed->value;
+            const auto prev_speed = speed_section - 1;
+            previous_value = prev_speed->value;
             current_value = speed_section->value;
             duration = speed_section->duration;
             speed_time = speed_section->time;
@@ -328,16 +328,16 @@ namespace otoworm
 
         double speed_progress;
         if (!use_beat_integration)
-            speed_progress = Clamp((CurrentTime - speed_time) / duration, 0.0, 1.0);
+            speed_progress = Clamp((current_time - speed_time) / duration, 0.0, 1.0);
         else
         {
             // Assume duration in beats if IntegrateByBeats is true
-            speed_progress = Clamp((get_beat_at(CurrentTime) - get_beat_at(speed_time)) / duration, 0.0, 1.0);
+            speed_progress = Clamp((get_beat_at(current_time) - get_beat_at(speed_time)) / duration, 0.0, 1.0);
         }
 
-        const auto lerpedMultiplier = speed_progress * (current_value - previous_value) + previous_value;
+        const auto lerped_multiplier = speed_progress * (current_value - previous_value) + previous_value;
 
-        return lerpedMultiplier;
+        return lerped_multiplier;
     }
 
     // returns chart time

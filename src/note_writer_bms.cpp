@@ -10,9 +10,9 @@
 #include <converter.h>
 
 class BMSConverter : public RowifiedChart {
-	otoworm::ChartGroup *song;
+	otoworm::ChartGroup *song_;
 
-	std::stringstream out_file;
+	std::stringstream out_file_;
 
 	struct TimingMeasure {
 		std::vector<Event> bpm_events;
@@ -20,14 +20,14 @@ class BMSConverter : public RowifiedChart {
 		std::vector<Event> scroll_events;
 	};
 
-	std::vector<TimingMeasure> timing_measures;
-	std::vector<double> bpms;
-	std::vector<int> stops;
-	std::vector<double> scrolls;
+	std::vector<TimingMeasure> timing_measures_;
+	std::vector<double> bpms_;
+	std::vector<int> stops_;
+	std::vector<double> scrolls_;
 
 	void resize_timing_measures(const size_t new_max_index) {
-		if (timing_measures.size() < new_max_index + 1) {
-			timing_measures.resize(new_max_index + 1);
+		if (timing_measures_.size() < new_max_index + 1) {
+			timing_measures_.resize(new_max_index + 1);
 		}
 	}
 
@@ -64,23 +64,23 @@ class BMSConverter : public RowifiedChart {
 
 		Assumptions: There are no BPS events before time 0.
 		*/
-		for (const auto T : bps)
+		for (const auto t : bps)
 		{
-			assert(T.time >= 0);
-			if (T.value != 0) // Not a stop.
+			assert(t.time >= 0);
+			if (t.value != 0) // Not a stop.
 			{
-				const auto beat = quantize_function(bps.integrate_to_time(T.time));
-				const auto bpm = 60 * T.value;
+				const auto beat = quantize_function(bps.integrate_to_time(t.time));
+				const auto bpm = 60 * t.value;
 
 				// Check redundant bpms.
-				const auto index = get_index_for_value(bpms, bpm);
+				const auto index = get_index_for_value(bpms_, bpm);
 
 				// Create new event at measure.
 				const auto measure_for_event = get_measure_from_beat(beat);
 				resize_timing_measures(measure_for_event); // Make sure we've got space on the measures std::vector
-				timing_measures[measure_for_event].bpm_events.push_back({ 
+				timing_measures_[measure_for_event].bpm_events.push_back({
 					get_fraction_from_beat(measure_for_event, beat),
-					index + 1 
+					index + 1
 				});
 			}
 		}
@@ -88,29 +88,29 @@ class BMSConverter : public RowifiedChart {
 
 	void process_stop_events()
 	{
-		for (auto T = bps.begin(); T != bps.end(); ++T)
+		for (auto t = bps.begin(); t != bps.end(); ++t)
 		{
-			assert(T->time >= 0);
-			if (T->value <= 0.0001) // A stop.
+			assert(t->time >= 0);
+			if (t->value <= 0.0001) // A stop.
 			{
-				const auto Restbpm = T + 1;
-				const auto beat = quantize_function(bps.integrate_to_time(T->time));
+				const auto restbpm = t + 1;
+				const auto beat = quantize_function(bps.integrate_to_time(t->time));
 				// By song processing law, any stop is followed by a restoration of the original bpm.
-				const auto duration = Restbpm->time - T->time;
-				const auto bps_at_stop = Restbpm->value;
+				const auto duration = restbpm->time - t->time;
+				const auto bps_at_stop = restbpm->value;
 				// We need to know how long in beats this stop lasts for bps_at_stop.
 				const auto stop_bm_sdurationbeats = bps_at_stop * duration;
 				// Now the duration in BMS stops..
 				const int stopduration_bms = round(stop_bm_sdurationbeats * 48.0);
 
 				// Check redundant stops.
-				const auto index = get_index_for_value(stops, stopduration_bms);
+				const auto index = get_index_for_value(stops_, stopduration_bms);
 
 				const auto measure_for_event = get_measure_from_beat(beat);
 				resize_timing_measures(measure_for_event);
-				timing_measures[measure_for_event].stop_events.push_back({ 
+				timing_measures_[measure_for_event].stop_events.push_back({
 					get_fraction_from_beat(measure_for_event, beat),
-					index + 1 
+					index + 1
 				});
 			}
 		}
@@ -118,16 +118,16 @@ class BMSConverter : public RowifiedChart {
 
 	void process_scroll_events()
 	{
-		for (const auto S : parent->transient->scrolls)
+		for (const auto s : parent->transient->scrolls)
 		{
-			const auto beat = quantize_function(bps.integrate_to_time(S.time));
-			const auto index = get_index_for_value(scrolls, S.value);
+			const auto beat = quantize_function(bps.integrate_to_time(s.time));
+			const auto index = get_index_for_value(scrolls_, s.value);
 
 			if (beat < 0) continue;
 
 			const auto measure_for_event = get_measure_from_beat(beat);
 			resize_timing_measures(measure_for_event);
-			timing_measures[measure_for_event].scroll_events.push_back({
+			timing_measures_[measure_for_event].scroll_events.push_back({
 				get_fraction_from_beat(measure_for_event, beat),
 				index + 1
 			});
@@ -143,49 +143,49 @@ class BMSConverter : public RowifiedChart {
         const auto chart_name = parent->meta ? parent->meta->name : std::string();
         const auto chart_author = parent->meta ? parent->meta->author : std::string();
 		//out_file << "-- " << RAINDROP_WINDOWTITLE << RAINDROP_VERSIONTEXT << " converter to BMS" << endl;
-		out_file << "-- HEADER" << endl;
-		out_file << "#ARTIST " << song->artist << endl;
-		out_file << "#TITLE " << song->title << endl;
-		out_file << "#MUSIC " << otoworm::locale::wstring_to_utf8(song->song_filename.wstring()) << endl;
-		out_file << "#OFFSET " << parent->offset << endl;
-		out_file << "#bpm " << get_start_bpm() << endl;
-		out_file << "#PREVIEWPOINT " << song->preview_time << endl;
-		out_file << "#STAGEFILE " << parent->transient->stage_file << endl;
-		out_file << "#DIFFICULTY " << chart_name << endl;
-		out_file << "#PREVIEW " << otoworm::locale::wstring_to_utf8(song->song_preview_source.wstring()) << endl;
-		out_file << "#PLAYLEVEL " << parent->level << endl;
-		out_file << "#MAKER " << chart_author << endl;
+		out_file_ << "-- HEADER" << endl;
+		out_file_ << "#ARTIST " << song_->artist << endl;
+		out_file_ << "#TITLE " << song_->title << endl;
+		out_file_ << "#MUSIC " << otoworm::locale::wstring_to_utf8(song_->song_filename.wstring()) << endl;
+		out_file_ << "#OFFSET " << parent->offset << endl;
+		out_file_ << "#bpm " << get_start_bpm() << endl;
+		out_file_ << "#PREVIEWPOINT " << song_->preview_time << endl;
+		out_file_ << "#STAGEFILE " << parent->transient->stage_file << endl;
+		out_file_ << "#DIFFICULTY " << chart_name << endl;
+		out_file_ << "#PREVIEW " << otoworm::locale::wstring_to_utf8(song_->song_preview_source.wstring()) << endl;
+		out_file_ << "#PLAYLEVEL " << parent->level << endl;
+		out_file_ << "#MAKER " << chart_author << endl;
 
-		out_file << endl << "-- WAVs" << endl;
+		out_file_ << endl << "-- WAVs" << endl;
 		for (const auto& i : parent->transient->sound_list) {
-			out_file << "#WAV" << to_base36(i.first) << " " << i.second << endl;
+			out_file_ << "#WAV" << to_base36(i.first) << " " << i.second << endl;
 		}
 
-		out_file << endl << "-- bpms" << endl;
-		for (size_t i = 0; i < bpms.size(); i++) {
-			out_file << "#bpm" << to_base36(i + 1) << " " << bpms[i] << endl;
+		out_file_ << endl << "-- bpms" << endl;
+		for (size_t i = 0; i < bpms_.size(); i++) {
+			out_file_ << "#bpm" << to_base36(i + 1) << " " << bpms_[i] << endl;
 		}
 
-		out_file << endl << "-- STOPs" << endl;
-		for (size_t i = 0; i < stops.size(); i++) {
-			out_file << "#STOP" << to_base36(i + 1) << " " << stops[i] << endl;
+		out_file_ << endl << "-- STOPs" << endl;
+		for (size_t i = 0; i < stops_.size(); i++) {
+			out_file_ << "#STOP" << to_base36(i + 1) << " " << stops_[i] << endl;
 		}
 
-		out_file << endl << "-- SCROLLs" << endl;
-		for (size_t i = 0; i < scrolls.size(); i++)
+		out_file_ << endl << "-- SCROLLs" << endl;
+		for (size_t i = 0; i < scrolls_.size(); i++)
 		{
-			out_file << "#SCROLL" << to_base36(i + 1) << " " << scrolls[i] << endl;
+			out_file_ << "#SCROLL" << to_base36(i + 1) << " " << scrolls_[i] << endl;
 		}
 	}
 
-	void WriteVectorToMeasureChannel(std::vector<Event> &EventList, const int Measure, const int Channel, const bool AllowMultiple = false)
+	void WriteVectorToMeasureChannel(std::vector<Event> &event_list, const int measure, const int channel, const bool allow_multiple = false)
 	{
-		if (EventList.empty()) return; // Nothing to write.
+		if (event_list.empty()) return; // Nothing to write.
 
-		const auto VecLCM = get_row_count(EventList);
-		sort(EventList.begin(), EventList.end(), [](const Event& A, const Event&B)
+		const auto vec_lcm = get_row_count(event_list);
+		sort(event_list.begin(), event_list.end(), [](const Event& a, const Event&b)
 			-> bool {
-			return (static_cast<double>(A.sect.Num) / A.sect.den) < (static_cast<double>(B.sect.Num) / B.sect.den);
+			return (static_cast<double>(a.sect.num) / a.sect.den) < (static_cast<double>(b.sect.num) / b.sect.den);
 		});
 
 		// first of the pair is numerator aka row given veclcm as a denominator
@@ -196,14 +196,14 @@ class BMSConverter : public RowifiedChart {
 		size_t linecount = 0;
 
 		// Now that we have the LCM we can easily just place the objects exactly as we want to output them.
-		for (const auto &Obj : EventList) {
+		for (const auto &obj : event_list) {
 
 			// We convert to a numerator that fits with the LCM.
-			auto newNumerator = Obj.sect.Num * VecLCM / Obj.sect.den;
-			auto &it = rowified[newNumerator];
+			auto new_numerator = obj.sect.num * vec_lcm / obj.sect.den;
+			auto &it = rowified[new_numerator];
 
-			if (!it.size() || AllowMultiple) {
-				it.push_back(Obj.evt);
+			if (!it.size() || allow_multiple) {
+				it.push_back(obj.evt);
 
 				// max amount of simultaneous events are given by the largest vector
 				linecount = std::max(linecount, it.size());
@@ -215,7 +215,7 @@ class BMSConverter : public RowifiedChart {
 		// add the tag to all lines.
 		for (size_t i = 0; i < linecount; i++) {
 			auto &line = lines[i];
-			line << std::format("#{:03}{}:", Measure, to_base36(Channel));
+			line << std::format("#{:03}{}:", measure, to_base36(channel));
 		}
 
 		if (rowified.find(0) == rowified.end())
@@ -242,7 +242,7 @@ class BMSConverter : public RowifiedChart {
 				next_row = next->first;
 			}
 			else {
-				next_row = VecLCM;
+				next_row = vec_lcm;
 			}
 
 			// don't count the destination row itself (take 1)
@@ -256,8 +256,8 @@ class BMSConverter : public RowifiedChart {
 		}
 
 		for (auto &line : lines) {
-			out_file << line.str();
-			out_file << std::endl;
+			out_file_ << line.str();
+			out_file_ << std::endl;
 		}
 	}
 
@@ -267,45 +267,45 @@ class BMSConverter : public RowifiedChart {
 
 	void WriteMeasures()
 	{
-		uint32_t Measure = 0;
+		uint32_t measure = 0;
 		using std::endl;
-		for (auto M : measures_){
-			if (parent->transient->measures[Measure].length != 4)
+		for (auto m : measures){
+			if (parent->transient->measures[measure].length != 4)
 			{
-				double bmsLength = parent->transient->measures[Measure].length / 4;
-				out_file << std::format("#{:03}02:{}", Measure, bmsLength) << endl;
+				double bms_length = parent->transient->measures[measure].length / 4;
+				out_file_ << std::format("#{:03}02:{}", measure, bms_length) << endl;
 			}
 
-			out_file << "-- BGM - Measure " << Measure << endl;
-			WriteVectorToMeasureChannel(M.bgm_events, Measure, 1, true);
+			out_file_ << "-- BGM - Measure " << measure << endl;
+			WriteVectorToMeasureChannel(m.bgm_events, measure, 1, true);
 
-			if (Measure < timing_measures.size()) {
+			if (measure < timing_measures_.size()) {
 
-				if (!timing_measures[Measure].bpm_events.empty()) {
-					out_file << "-- bpm" << endl;
-					WriteVectorToMeasureChannel(timing_measures[Measure].bpm_events, Measure, 8); // lol just exbpm. who cares anyway
+				if (!timing_measures_[measure].bpm_events.empty()) {
+					out_file_ << "-- bpm" << endl;
+					WriteVectorToMeasureChannel(timing_measures_[measure].bpm_events, measure, 8); // lol just exbpm. who cares anyway
 				}
 
-				if (!timing_measures[Measure].stop_events.empty()) {
-					out_file << "-- STOPS" << endl;
-					WriteVectorToMeasureChannel(timing_measures[Measure].stop_events, Measure, 9);
+				if (!timing_measures_[measure].stop_events.empty()) {
+					out_file_ << "-- STOPS" << endl;
+					WriteVectorToMeasureChannel(timing_measures_[measure].stop_events, measure, 9);
 				}
 
-				if (!timing_measures[Measure].scroll_events.empty())
+				if (!timing_measures_[measure].scroll_events.empty())
 				{
-					out_file << "-- SCROLLS" << endl;
-					WriteVectorToMeasureChannel(timing_measures[Measure].scroll_events, Measure, b36toi("SC"));
+					out_file_ << "-- SCROLLS" << endl;
+					WriteVectorToMeasureChannel(timing_measures_[measure].scroll_events, measure, b36toi("SC"));
 				}
 			}
 
-			out_file << "-- OBJ" << endl;
+			out_file_ << "-- OBJ" << endl;
 			for (int i = 0; i < parent->channels; i++)
 			{
-				WriteVectorToMeasureChannel(M.objects[i], Measure, GetChannel(i));
-				WriteVectorToMeasureChannel(M.ln_objects[i], Measure, GetLNChannel(i));
+				WriteVectorToMeasureChannel(m.objects[i], measure, GetChannel(i));
+				WriteVectorToMeasureChannel(m.ln_objects[i], measure, GetLNChannel(i));
 			}
 
-			Measure++;
+			measure++;
 		}
 	}
 
@@ -317,25 +317,25 @@ class BMSConverter : public RowifiedChart {
 
 public:
 
-	BMSConverter(const bool Quantize, otoworm::Chart *Source, otoworm::ChartGroup *song)
-		: RowifiedChart(Source, Quantize, true)
+	BMSConverter(const bool quantize, otoworm::Chart *source, otoworm::ChartGroup *song)
+		: RowifiedChart(source, quantize, true)
 	{
-		this->song = song;
+		this->song_ = song;
 
 		process_bpm_events();
 		process_stop_events();
 		process_scroll_events();
 	}
 
-	void Output(std::filesystem::path PathOut)
+	void Output(std::filesystem::path path_out)
 	{
-		std::filesystem::path name = PathOut;
+		std::filesystem::path name = path_out;
 
-		if (std::filesystem::is_directory(PathOut) && std::filesystem::exists(PathOut)) {
+		if (std::filesystem::is_directory(path_out) && std::filesystem::exists(path_out)) {
             const auto chart_name = parent->meta ? parent->meta->name : std::string();
             const auto chart_author = parent->meta ? parent->meta->author : std::string();
 		    name = name / std::format("{} ({}) - {}.bms",
-                          song->title, chart_name, chart_author);
+                          song_->title, chart_name, chart_author);
 		}
 
 
@@ -351,7 +351,7 @@ public:
 			throw std::runtime_error("There are no timing points!");
 
 		WriteBMSOutput();
-		out << out_file.str();        
+		out << out_file_.str();
     }
 };
 
@@ -432,21 +432,21 @@ int BMSConverter::GetLNChannel(const int channel) const
 	}
 }
 
-void ConvertBMSAll(otoworm::ChartGroup *Source, std::filesystem::path PathOut, const bool Quantize)
+void ConvertBMSAll(otoworm::ChartGroup *source, std::filesystem::path path_out, const bool quantize)
 {
-    for (auto &Diff : Source->charts)
+    for (auto &diff : source->charts)
     {
-        BMSConverter Conv(Quantize, Diff.get(), Source);
-        Conv.Output(PathOut);
+        BMSConverter conv(quantize, diff.get(), source);
+        conv.Output(path_out);
     }
 }
 
-void export_to_bms(otoworm::ChartGroup* Source, std::filesystem::path PathOut)
+void export_to_bms(otoworm::ChartGroup* source, std::filesystem::path path_out)
 {
-    ConvertBMSAll(Source, PathOut, true);
+    ConvertBMSAll(source, path_out, true);
 }
 
-void export_to_bms_unquantized(otoworm::ChartGroup* Source, std::filesystem::path PathOut)
+void export_to_bms_unquantized(otoworm::ChartGroup* source, std::filesystem::path path_out)
 {
-    ConvertBMSAll(Source, PathOut, false);
+    ConvertBMSAll(source, path_out, false);
 }

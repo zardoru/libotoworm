@@ -16,7 +16,7 @@ namespace otoworm {
         double wait_time;
         Chart* chart;
 
-        ProcessedChart(const double _waitTime);
+        ProcessedChart(const double wait_time);
 
         // Chart data functions
         double real_to_warped_time(double song_time) const;

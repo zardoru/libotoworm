@@ -30,41 +30,41 @@ T lcm(T a, T b)
 template <class T>
 struct Fraction
 {
-    T Num;
+    T num;
     T den;
 
     Fraction()
     {
-        Num = den = 1;
+        num = den = 1;
     }
 
     template <class K>
     Fraction(K num, K den)
     {
-        Num = num;
+        num = num;
         den = den;
     }
 
     void fromDouble(double in)
     {
         double d = 0;
-        Num = 0;
+        num = 0;
         den = 1;
         while (d != in)
         {
-            if (d < in)	++Num;
+            if (d < in)	++num;
             else if (d > in) ++den;
-            d = static_cast<double>(Num) / den;
+            d = static_cast<double>(num) / den;
         }
     }
 
 	Fraction<T> Simplify() {
-		T t = gcd(Num, den);
-		return Fraction{ Num / t, den / t };
+		T t = gcd(num, den);
+		return Fraction{ num / t, den / t };
 	}
 
 	operator double() {
-		return Num / den;
+		return num / den;
 	}
 
 	bool operator<(Fraction<T> other) {
@@ -88,23 +88,23 @@ inline bool IntervalsIntersect(const double a, const double b, const double c, c
 }
 
 template <class T>
-inline T LerpRatio(const T &Start, const T& End, double Progress, double Total)
+inline T LerpRatio(const T &start, const T& end, double progress, double total)
 {
-    return Start + (End - Start) * Progress / Total;
+    return start + (end - start) * progress / total;
 }
 
 template <class T, class N>
-inline T Lerp(const T &Start, const T& End, N k)
+inline T Lerp(const T &start, const T& end, N k)
 {
-    return Start + k * (End - Start);
+    return start + k * (end - start);
 }
 
 template <class T>
-inline T Clamp(const T &Value, const T &Min, const T &Max)
+inline T Clamp(const T &value, const T &min, const T &max)
 {
-    if (Value < Min) return Min;
-    else if (Value > Max) return Max;
-    else return Value;
+    if (value < min) return min;
+    else if (value > max) return max;
+    else return value;
 }
 
 template <class T>
@@ -127,54 +127,54 @@ struct TRect
 {
     union
     {
-        struct { T X, Y; } P1;
-        struct { T X1, Y1; }; // Topleft point
+        struct { T x, y; } p1;
+        struct { T x1, y1; }; // Topleft point
     };
 
     union
     {
-        struct { T X, Y; } P2;
-        struct { T X2, Y2; }; // Bottomright point
+        struct { T x, y; } p2;
+        struct { T x2, y2; }; // Bottomright point
     };
 
     TRect(T x1, T y1, T x2, T y2) {
-        X1 = x1;
-        X2 = x2;
-        Y1 = y1;
-        Y2 = y2;
+        x1 = x1;
+        x2 = x2;
+        y1 = y1;
+        y2 = y2;
     }
 
     TRect() {
-        X1 = X2 = 0;
-        Y1 = Y2 = 0;
+        x1 = x2 = 0;
+        y1 = y2 = 0;
     }
 
     inline bool is_in_box(T x, T y) {
-        return x >= X1 && x <= X2
-               && y >= Y1 && y <= Y2;
+        return x >= x1 && x <= x2
+               && y >= y1 && y <= y2;
     }
 
     inline bool intersects(const TRect &other) {
-        return is_in_box(other.X1, other.Y1) ||
-               is_in_box(other.X2, other.Y2) ||
-               is_in_box(other.X2, other.Y1) ||
-               is_in_box(other.X1, other.Y2);
+        return is_in_box(other.x1, other.y1) ||
+               is_in_box(other.x2, other.y2) ||
+               is_in_box(other.x2, other.y1) ||
+               is_in_box(other.x1, other.y2);
     }
 
     inline void SetWidth(T w) {
-        X2 = X1 + w;
+        x2 = x1 + w;
     }
 
     inline void SetHeight(T h) {
-        Y2 = Y1 + h;
+        y2 = y1 + h;
     }
 
     T width() const {
-        return X2 - X1;
+        return x2 - x1;
     }
 
     T height() const {
-        return Y2 - Y1;
+        return y2 - y1;
     }
 };
 
@@ -187,8 +187,8 @@ struct ColorRGBA_
 {
     union
     {
-        struct { T R, G, B, A; };
-        struct { T Red, Green, Blue, Alpha; };
+        struct { T r, g, b, a; };
+        struct { T red, green, blue, alpha; };
     };
 };
 
@@ -204,7 +204,7 @@ namespace Color
     extern const ColorRGBA blue;
 }
 
-int lcm(const std::vector<int> &Set);
+int lcm(const std::vector<int> &set);
 
 namespace otoworm::util
 {

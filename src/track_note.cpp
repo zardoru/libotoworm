@@ -6,57 +6,57 @@ namespace otoworm {
     TrackNote::TrackNote() {
     }
 
-    TrackNote::TrackNote(const NoteData &Data) {
-        assign_note_data(Data);
+    TrackNote::TrackNote(const NoteData &data) {
+        assign_note_data(data);
     }
 
     TrackNote::~TrackNote() {
     }
 
     float TrackNote::get_hold_size() const {
-        return std::abs((b_pos_holdend - b_pos));
+        return std::abs((b_pos_holdend_ - b_pos_));
     }
 
     float TrackNote::get_hold_end_vertical() const {
-        return b_pos_holdend;
+        return b_pos_holdend_;
     }
 
-    void TrackNote::assign_note_data(const NoteData &Notedata) {
-        time = Notedata.start;
-        end_time = Notedata.end_time;
-        sound = Notedata.sound;
-        tail_sound = Notedata.tail_sound;
-        note_kind = Notedata.type;
+    void TrackNote::assign_note_data(const NoteData &notedata) {
+        time = notedata.start;
+        end_time_ = notedata.end_time;
+        sound_ = notedata.sound;
+        tail_sound_ = notedata.tail_sound;
+        note_kind_ = notedata.type;
     }
 
 
     /* calculate the beat snap for this fraction */
     void TrackNote::assign_fraction(const double frac) {
-        fraction_kind = get_fraction_kind_beat(frac);
+        fraction_kind_ = get_fraction_kind_beat(frac);
     }
 
-    void TrackNote::assign_position(const double Position, const double endPosition) {
-        b_pos = Position;
-        b_pos_holdend = endPosition;
+    void TrackNote::assign_position(const double position, const double end_position) {
+        b_pos_ = position;
+        b_pos_holdend_ = end_position;
     }
 
     bool TrackNote::is_hold() const {
-        return end_time != 0;
+        return end_time_ != 0;
     }
 
     float TrackNote::get_vertical() const {
-        return b_pos;
+        return b_pos_;
     }
 
-    void TrackNote::add_time(const double Time) {
-        this->time += Time;
+    void TrackNote::add_time(const double time) {
+        this->time += time;
 
         if (is_hold())
-            end_time += Time;
+            end_time_ += time;
     }
 
     double TrackNote::get_end_time() const {
-        return std::max(time, end_time);
+        return std::max(time, end_time_);
     }
 
     double TrackNote::get_start_time() const {
@@ -64,19 +64,19 @@ namespace otoworm {
     }
 
     float TrackNote::get_vertical_hold() const {
-        return b_pos + get_hold_size() / 2;
+        return b_pos_ + get_hold_size() / 2;
     }
 
     uint32_t TrackNote::get_sound() const {
-        return sound;
+        return sound_;
     }
 
     uint32_t TrackNote::get_tail_sound() const {
-        return tail_sound;
+        return tail_sound_;
     }
 
     int TrackNote::get_frac_kind() const {
-        return fraction_kind;
+        return fraction_kind_;
     }
 
     double &TrackNote::get_data_start_time() {
@@ -84,26 +84,26 @@ namespace otoworm {
     }
 
     double &TrackNote::get_data_end_time() {
-        return end_time;
+        return end_time_;
     }
 
     uint32_t &TrackNote::get_data_sound() {
-        return sound;
+        return sound_;
     }
 
     uint8_t TrackNote::get_data_note_kind() const {
-        return note_kind;
+        return note_kind_;
     }
 
     uint8_t TrackNote::get_data_fraction_kind() const {
-        return fraction_kind;
+        return fraction_kind_;
     }
 
     bool TrackNote::is_judgable() const {
-        return note_kind != NK_INVISIBLE && note_kind != NK_FAKE;
+        return note_kind_ != NK_INVISIBLE && note_kind_ != NK_FAKE;
     }
 
     bool TrackNote::is_visible() const {
-        return note_kind != NK_INVISIBLE;
+        return note_kind_ != NK_INVISIBLE;
     }
 }

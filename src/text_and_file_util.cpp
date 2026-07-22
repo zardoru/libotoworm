@@ -109,14 +109,14 @@ namespace otoworm::util
         return str;
     }
 
-    time_t get_last_modified_time(std::filesystem::path Path)
+    time_t get_last_modified_time(std::filesystem::path path)
     {
-		if (std::filesystem::exists(Path)) {
+		if (std::filesystem::exists(path)) {
 #ifndef WIN32
-			auto a = std::filesystem::last_write_time(Path);
-            const auto systemTime = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+			auto a = std::filesystem::last_write_time(path);
+            const auto system_time = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
                 a - decltype(a)::clock::now() + std::chrono::system_clock::now());
-            return std::chrono::system_clock::to_time_t(systemTime);
+            return std::chrono::system_clock::to_time_t(system_time);
 #else
             // az: bah. fucking windows.
             struct _stat s{};
@@ -127,36 +127,36 @@ namespace otoworm::util
 		else return -1;
     }
 
-    void normalize_filename(std::string &S, const bool removeSlash, bool noAbsolute)
+    void normalize_filename(std::string &s, const bool remove_slash, bool no_absolute)
     {
         // size_t len = strlen(fn);
         /*if (!noAbsolute)
             replace_all(S, "[<>\\|?*]", "");
         else*/
-            replace_all(S, "[<>\\|?*]", "");
+            replace_all(s, "[<>\\|?*]", "");
 
-        if (removeSlash)
-            replace_all(S, "/", "");
+        if (remove_slash)
+            replace_all(s, "/", "");
     }
 
-    std::string get_sha256_for_file(std::filesystem::path Filename)
+    std::string get_sha256_for_file(std::filesystem::path filename)
     {
-        SHA256 SHA;
-		std::ifstream InStream(Filename, std::ios::in | std::ios::binary);
+        SHA256 sha;
+		std::ifstream in_stream(filename, std::ios::in | std::ios::binary);
         unsigned char tmpbuf[256];
 
-        if (!InStream.is_open())
+        if (!in_stream.is_open())
             return "";
 
-        while (!InStream.eof())
+        while (!in_stream.eof())
         {
-            InStream.read((char*)tmpbuf, 256);
-            const size_t cnt = InStream.gcount();
+            in_stream.read((char*)tmpbuf, 256);
+            const size_t cnt = in_stream.gcount();
 
-            SHA.add(tmpbuf, cnt);
+            sha.add(tmpbuf, cnt);
         }
 
-        return std::string(SHA.getHash());
+        return std::string(sha.getHash());
     }
 
     std::string format(std::string str, ...)
@@ -181,11 +181,11 @@ namespace otoworm::util
 
         if (s.find_first_of(point) == std::string::npos)
         {
-            char toFind = '.';
-            if (point == ',') toFind = '.';
-            else if (point == '.') toFind = ',';
+            char to_find = '.';
+            if (point == ',') to_find = '.';
+            else if (point == '.') to_find = ',';
 
-            const size_t idx = s.find_first_of(toFind);
+            const size_t idx = s.find_first_of(to_find);
             if (idx != std::string::npos)
                 s[idx] = point;
         }

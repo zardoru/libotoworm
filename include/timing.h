@@ -52,7 +52,7 @@ struct TimedEvent
 struct TimingSegment : TimedEvent < TimingSegment, double >
 {
     double value; // in bpm
-    TimingSegment(double T, double V) : TimedEvent(T), value(V) {};
+    TimingSegment(double t, double v) : TimedEvent(t), value(v) {};
     TimingSegment() : TimingSegment(0, 0) {};
 };
 

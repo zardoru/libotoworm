@@ -22,36 +22,36 @@ namespace otoworm {
                 type = NK_NORMAL;
             }
 
-            NoteData(double _StartTime, double _EndTime) : NoteData() {
-                start = _StartTime;
-                end_time = _EndTime;
+            NoteData(double start_time, double end_time) : NoteData() {
+                start = start_time;
+                this->end_time = end_time;
             }
         };
 
 		class TrackNote : public TimedEvent<TrackNote, double>
 		{
             // 16 bytes (Implied 8 with inherited TimedEvent)
-			double end_time;
+			double end_time_;
 
 			// 16 bytes
-			double b_pos;
-			double b_pos_holdend;
+			double b_pos_;
+			double b_pos_holdend_;
 
 			// 8 bytes
-			uint32_t sound;
-			uint32_t tail_sound;
+			uint32_t sound_;
+			uint32_t tail_sound_;
 
 			// 3 bytes
-			uint8_t note_kind; // To be used with ENoteKind.
-			uint8_t fraction_kind;
+			uint8_t note_kind_; // To be used with ENoteKind.
+			uint8_t fraction_kind_;
 
 			// 48 bytes aligned
 		public:
 			TrackNote();
-			explicit TrackNote(const NoteData &Data);
+			explicit TrackNote(const NoteData &data);
 
 			// Build this tracknote from this NoteData.
-			void assign_note_data(const NoteData &Data);
+			void assign_note_data(const NoteData &data);
 
 			// az: These return by references are completely useless and kinda stupid.
 
@@ -71,13 +71,13 @@ namespace otoworm {
 			uint8_t  get_data_fraction_kind() const;
 
 			// Set this note's position on the vertical track.
-			void assign_position(double Position, double endPosition = 0);
+			void assign_position(double position, double end_position = 0);
 
 			// Assign a fraction of a beat to this note.
 			void assign_fraction(double frc); // frc = fraction of a beat
 
 			// Add this much drift to the note. Doesn't reset.
-			void add_time(double Time);
+			void add_time(double time);
 
 			// Get the position on the track of the note/hold head.
 			float get_vertical() const;

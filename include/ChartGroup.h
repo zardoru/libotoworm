@@ -17,14 +17,14 @@ struct AutoplaySound : public TimedEvent < AutoplaySound, double >
     uint32_t sound;
 
     AutoplaySound() : TimedEvent(0), sound(0) {};
-    AutoplaySound(double T, uint32_t V) : TimedEvent(T), sound(V) {}
+    AutoplaySound(double t, uint32_t v) : TimedEvent(t), sound(v) {}
 };
 
 struct AutoplayBMP : public TimedEvent < AutoplayBMP, float >
 {
     int bmp;
     AutoplayBMP() : TimedEvent(0), bmp(0) {};
-    AutoplayBMP(double T, int V) : TimedEvent(T), bmp(V) {};
+    AutoplayBMP(double t, int v) : TimedEvent(t), bmp(v) {};
 };
 
 template<class T>
@@ -43,11 +43,11 @@ struct SliceContainer
     std::map<int, std::map<int, SliceInfo>> slices; // 1st int := wav index, 2nd int := snd index, Slice Info, where to cut for 2nd int for wav 1st int
 };
 
-    constexpr size_t MAX_CHANNELS = 16;
+    constexpr size_t max_channels = 16;
 
     struct Measure
     {
-        std::vector<NoteData> notes[MAX_CHANNELS];
+        std::vector<NoteData> notes[max_channels];
         double length; // In beats. 4 by default.
 
         Measure()
@@ -73,7 +73,7 @@ struct SliceContainer
 
     typedef std::vector<Measure> VectorMeasure;
 
-    typedef std::vector<TrackNote> VectorTrackNote[MAX_CHANNELS];
+    typedef std::vector<TrackNote> VectorTrackNote[max_channels];
 
     class ChartInfo
     {
@@ -175,7 +175,7 @@ struct SliceContainer
         // At Time, warp Value seconds forward.
         TimingData warps;
 
-        // Notes (Up to MAX_CHANNELS tracks)
+        // Notes (Up to max_channels tracks)
         VectorMeasure measures;
 
         // For Speed changes.
@@ -318,12 +318,12 @@ TimingData bps_from_time_timing(const TimingData& timing, double offset = 0);
 TimingData bps_from_beatspace_timing(const TimingData& timing, double offset = 0);
 
 // Quantizes fraction to a beat's maximum resolution (1/48th of a beat)
-double quantize_fraction_beat(double Frac);
+double quantize_fraction_beat(double frac);
 
 // Quantizes fraction to a measure's maximum resolution (1/192nd of a measure)
-double quantize_fraction_measure(double Frac);
+double quantize_fraction_measure(double frac);
 
 // Quantizes beat to a beat's maximum resolution (1/48th of a beat)
-double quantize_beat(double Beat);
+double quantize_beat(double beat);
 
 }

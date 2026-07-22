@@ -22,19 +22,19 @@ void convert_to_om(otoworm::ChartGroup *sng, std::filesystem::path path_out, std
     for (auto &chart : sng->charts)
     {
         std::string name = sng->title;
-        std::string Dname = chart->meta ? chart->meta->name : std::string();
+        std::string dname = chart->meta ? chart->meta->name : std::string();
         std::string charter = author;
 
         otoworm::util::normalize_filename(author, true);
         otoworm::util::normalize_filename(name, true);
-        otoworm::util::normalize_filename(Dname, true);
+        otoworm::util::normalize_filename(dname, true);
         otoworm::util::normalize_filename(charter, true);
 
-		std::filesystem::path str = 
+		std::filesystem::path str =
 			path_out / std::format("{} - {} [{}] ({}).osu",
-									  author, 
-									  name, 
-									  Dname, 
+									  author,
+									  name,
+									  dname,
 									  charter);
 
 		// Log::Printf("Converting into file %s...\n", str.string().c_str());
@@ -77,7 +77,7 @@ void convert_to_om(otoworm::ChartGroup *sng, std::filesystem::path path_out, std
             << "Artist: " << sng->artist << "\n"
             << "ArtistUnicode: " << sng->artist << "\n"
             << "Creator: " << author << "\n"
-            << "Version: " << Dname << "\n"
+            << "Version: " << dname << "\n"
             << "Source: \nTags: \nBeatmapID:0\nBeatmapSetID:-1\n\n";
 
         out.flush();
@@ -141,7 +141,7 @@ void convert_to_om(otoworm::ChartGroup *sng, std::filesystem::path path_out, std
                         out << static_cast<int>(round(note.end_time * 1000.0)) << ",";
 					// "sampleSet:additionSet:customIndex:sampleVolume:filename"
 					out << "1:0:0:";
-					
+
 
 					if (note.sound)
 					{
@@ -185,10 +185,10 @@ void convert_to_sm_timing(otoworm::ChartGroup *sng, std::filesystem::path path_o
         if (i->value <= 0)
             continue;
 
-        double Beat = otoworm::quantize_beat(data.bps.integrate_to_time(i->time));
-        double Value = i->value * 60;
+        double beat = otoworm::quantize_beat(data.bps.integrate_to_time(i->time));
+        double value = i->value * 60;
 
-        out << Beat << "=" << Value;
+        out << beat << "=" << value;
 
         if ((i + 1) != data.bps.end()) // Only output comma if there's still stuff to output.
             out << "\n,";

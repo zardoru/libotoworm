@@ -14,7 +14,7 @@
 #define MAX_STRING_SIZE 8192
 
 namespace otoworm::locale {
-std::string sjis_to_u8(std::string Line)
+std::string sjis_to_u8(std::string line)
     {
 #ifdef WIN32
         wchar_t u16s[MAX_STRING_SIZE];
@@ -41,12 +41,12 @@ std::string sjis_to_u8(std::string Line)
         char buf[MAX_STRING_SIZE];
         iconv_t conv;
         char* out = buf;
-        const char* in = Line.c_str();
-        size_t BytesLeftSrc = Line.length();
-        size_t BytesLeftDst = MAX_STRING_SIZE;
+        const char* in = line.c_str();
+        size_t bytes_left_src = line.length();
+        size_t bytes_left_dst = MAX_STRING_SIZE;
 
         conv = iconv_open("UTF-8", "SHIFT_JIS");
-        bool success = (iconv(conv, (char **)&in, &BytesLeftSrc, &out, &BytesLeftDst) > -1);
+        bool success = (iconv(conv, (char **)&in, &bytes_left_src, &out, &bytes_left_dst) > -1);
 
         iconv_close(conv);
         if (success)
@@ -59,31 +59,31 @@ std::string sjis_to_u8(std::string Line)
 #endif
     }
 
-std::wstring widen(std::string Line)
+std::wstring widen(std::string line)
     {
 		std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
-        return converter.from_bytes(Line);
+        return converter.from_bytes(line);
     }
 
-    std::string to_u8(std::wstring Line)
+    std::string to_u8(std::wstring line)
     {
 		std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
-        return converter.to_bytes(Line);
+        return converter.to_bytes(line);
     }
 
-    std::string wstring_to_utf8(std::wstring Line)
+    std::string wstring_to_utf8(std::wstring line)
     {
-        return to_u8(Line);
+        return to_u8(line);
     }
 
-	std::string to_locale_str(std::wstring Line) {
+	std::string to_locale_str(std::wstring line) {
 #ifdef WIN32
         char mbs[MAX_STRING_SIZE];
         size_t len = WideCharToMultiByte(0, 0, Line.c_str(), -1, mbs, MAX_STRING_SIZE, NULL, 0);
         mbs[len] = 0;
         return std::string(mbs);
 #else
-		return to_u8(Line);
+		return to_u8(line);
 #endif
 	}
 

@@ -113,15 +113,15 @@ namespace NoteLoaderBMS
     }
 
     // Returns: Out: a std::vector with all the subtitles, std::string: The title without the subtitles.
-    std::string get_subtitles(const std::string& SLine, std::unordered_set<std::string>& Out)
+    std::string get_subtitles(const std::string& s_line, std::unordered_set<std::string>& out)
     {
-        std::string ret = SLine;
+        std::string ret = s_line;
         if (!ret.empty() && subtitle_closers.find(ret.back()) != std::string_view::npos)
         {
             const auto subtitle_start = ret.find_first_of(subtitle_openers);
             if (subtitle_start != std::string::npos)
             {
-                Out.insert(ret.substr(subtitle_start));
+                out.insert(ret.substr(subtitle_start));
                 ret.erase(subtitle_start);
             }
         }
@@ -165,7 +165,7 @@ namespace NoteLoaderBMS
         case 5:
             return 0;
         case 6: // foot pedal is ignored.
-            return MAX_CHANNELS + 1;
+            return max_channels + 1;
         case 7:
             return 6;
         case 8:
@@ -250,14 +250,14 @@ namespace NoteLoaderBMS
 
     class BMSLoader
     {
-        FilenameListIndex sounds;
-        FilenameListIndex bitmaps;
+        FilenameListIndex sounds_;
+        FilenameListIndex bitmaps_;
 
-        FilenameUsedIndex used_sounds;
+        FilenameUsedIndex used_sounds_;
 
-        BpmListIndex bpms;
-        BpmListIndex stops_list;
-        BpmListIndex scrolls_list;
+        BpmListIndex bpms_;
+        BpmListIndex stops_list_;
+        BpmListIndex scrolls_list_;
 
         /*
             Used channels will be bound to this list.
@@ -266,116 +266,120 @@ namespace NoteLoaderBMS
             Syntax in other words is
             Measures[Measure].events[Channel].Stuff
             */
-        BMSMeasureList measures;
-        ChartGroup* Song;
-        Chart* chart;
-        TimingData timing;
-        std::vector<double> measure_start_beat;
+        BMSMeasureList measures_;
+        ChartGroup* song_;
+        Chart* chart_;
+        TimingData timing_;
+        std::vector<double> measure_start_beat_;
 
-        int LowerBound{}, UpperBound{};
+        int lower_bound_{}, upper_bound_{};
 
-        double startTime[MAX_CHANNELS]{};
+        double start_time_[max_channels]{};
 
-        NoteData* LastNotes[MAX_CHANNELS]{};
+        NoteData* last_notes_[max_channels]{};
 
-        std::set<int> LNObj;
-        int SideBOffset{};
+        std::set<int> ln_obj_;
+        int side_b_offset_{};
 
-        bool is_pms;
+        bool is_pms_;
 
-        bool has_bmp_events;
-        bool has_turntable; // Uses the turntable?
+        bool has_bmp_events_;
+        bool has_turntable_; // Uses the turntable?
 
         void initialize_measure_start_times()
         {
-            const int ei = (measures.rbegin()->first) + 1;
-            measure_start_beat.clear();
-            measure_start_beat.reserve(ei);
-            measure_start_beat.push_back(0);
+            const int ei = (measures_.rbegin()->first) + 1;
+            measure_start_beat_.clear();
+            measure_start_beat_.reserve(ei);
+            measure_start_beat_.push_back(0);
             for (int i = 1; i < ei; i++)
-                measure_start_beat.push_back(measure_start_beat[i - 1] + measures[i - 1].beat_duration * 4);
+                measure_start_beat_.push_back(measure_start_beat_[i - 1] + measures_[i - 1].beat_duration * 4);
         }
 
-        double beat_from_measure_fraction(const int measure, const double Fraction)
+        double beat_from_measure_fraction(const int measure, const double fraction)
         {
-            return measure_start_beat[measure] + Fraction * measures[measure].beat_duration * 4;
+            return measure_start_beat_[measure] + fraction * measures_[measure].beat_duration * 4;
         }
 
-        double get_time_for_measure_fraction(const int Measure, const double Fraction)
+        double get_time_for_measure_fraction(const int measure, const double fraction)
         {
-            assert(chart != nullptr);
-            const double Beat = beat_from_measure_fraction(Measure, Fraction);
-            const double Time = timing.integrate_beats_to_seconds(chart->offset, Beat) +
-                chart->transient->stops.elapsed_stop_time_at_beat(Beat);
+            assert(chart_ != nullptr);
+            const double beat = beat_from_measure_fraction(measure, fraction);
+            const double time = timing_.integrate_beats_to_seconds(chart_->offset, beat) +
+                chart_->transient->stops.elapsed_stop_time_at_beat(beat);
 
-            return Time;
+            return time;
         }
 
-        void for_all_events_in_channel(const std::function<void(BMSEvent, int)>& fn, const bms::channel Channel)
+        void for_all_events_in_channel(
+            const std::function<void(BMSEvent, int)>& fn,
+            const bms::channel event_channel)
         {
-            for (auto& Measure : measures)
+            for (auto& measure : measures_)
             {
-                for (const auto& [channel, events] : Measure.second.events)
+                for (const auto& [channel_value, events] : measure.second.events)
                 {
-                    if (channel.kind != Channel)
+                    if (channel_value.kind != event_channel)
                         continue;
 
                     for (const auto ev : events)
-                        fn(ev, Measure.first);
+                        fn(ev, measure.first);
                 }
             }
         }
 
-        void process_bmp_events(std::vector<AutoplayBMP>& BMPEvents, const bms::channel Channel)
+        void process_bmp_events(
+            std::vector<AutoplayBMP>& bmp_events,
+            const bms::channel event_channel)
         {
-            for_all_events_in_channel([&](BMSEvent ev, const int Measure)
+            for_all_events_in_channel([&](BMSEvent ev, const int measure)
             {
-                BMPEvents.emplace_back(
-                    get_time_for_measure_fraction(Measure, ev.fraction),
+                bmp_events.emplace_back(
+                    get_time_for_measure_fraction(measure, ev.fraction),
                     ev.event
                 );
-            }, Channel);
+            }, event_channel);
         }
 
         void process_bpm_events()
         {
-            for_all_events_in_channel([&](const BMSEvent ev, const int Measure)
+            for_all_events_in_channel([&](const BMSEvent ev, const int measure)
             {
-                const double BPM = b16toi(tob36(ev.event).c_str());
-                const double Beat = beat_from_measure_fraction(Measure, ev.fraction);
+                const double bpm = b16toi(tob36(ev.event).c_str());
+                const double beat = beat_from_measure_fraction(measure, ev.fraction);
 
-                timing.push_back(TimingSegment(Beat, BPM));
+                timing_.push_back(TimingSegment(beat, bpm));
             }, bms::channel::bpm);
 
-            for_all_events_in_channel([&](const BMSEvent ev, const int Measure)
+            for_all_events_in_channel([&](const BMSEvent ev, const int measure)
             {
-                double BPM;
-                if (bpms.contains(ev.event))
-                    BPM = bpms[ev.event];
+                double bpm;
+                if (bpms_.contains(ev.event))
+                    bpm = bpms_[ev.event];
                 else
                     return;
 
-                if (BPM == 0) return; // ignore 0 events
+                if (bpm == 0) return; // ignore 0 events
 
-                const double Beat = beat_from_measure_fraction(Measure, ev.fraction);
-                timing.push_back(TimingSegment(Beat, BPM));
+                const double beat = beat_from_measure_fraction(measure, ev.fraction);
+                timing_.push_back(TimingSegment(beat, bpm));
             }, bms::channel::ex_bpm);
 
             // Make sure ExBPM events are in front using stable_sort.
-            std::ranges::stable_sort(timing);
+            std::ranges::stable_sort(timing_);
         }
 
         void process_stop_events()
         {
-            for_all_events_in_channel([&](const BMSEvent ev, const int Measure)
+            for_all_events_in_channel([&](const BMSEvent ev, const int measure)
             {
-                const double beat = beat_from_measure_fraction(Measure, ev.fraction);
-                const double stop_time_beats = stops_list[ev.event] / 48;
-                const double section_value_stop = timing.section_value(beat);
+                const double beat = beat_from_measure_fraction(measure, ev.fraction);
+                const double stop_time_beats = stops_list_[ev.event] / 48;
+                const double section_value_stop = timing_.section_value(beat);
                 const double spb_section = spb(section_value_stop);
                 const double stop_duration = stop_time_beats * spb_section; // A value of 1 is... a 48th of a beat.
 
-                chart->transient->stops.push_back(TimingSegment(beat, stop_duration));
+                chart_->transient->stops.push_back(TimingSegment(beat, stop_duration));
             }, bms::channel::stops);
         }
 
@@ -392,64 +396,64 @@ namespace NoteLoaderBMS
                 if (!info.valid || info.side != side || info.kind != kind || info.relative < min_relative)
                     continue;
 
-                int Track = 0;
+                int track = 0;
 
-                if (!is_pms)
-                    Track = translate_track_bme(info) - LowerBound;
+                if (!is_pms_)
+                    track = translate_track_bme(info) - lower_bound_;
                 else
-                    Track = translate_track_pms(info);
+                    track = translate_track_pms(info);
 
-                //if (!(Track >= 0 && Track < MAX_CHANNELS)) util::DebugBreak();
-                if (Track >= chart->channels || Track < 0) continue;
+                //if (!(track >= 0 && track < max_channels)) util::DebugBreak();
+                if (track >= chart_->channels || track < 0) continue;
 
                 for (const auto ev : events)
-                    action(ev, Track);
+                    action(ev, track);
             }
         }
 
-        void process_measure_side(BMSMeasureList::iterator& i, const int TrackOffset,
+        void process_measure_side(BMSMeasureList::iterator& i, const int track_offset,
                                   const bms::play_side side, Measure& measure,
                                   const int min_relative = 0)
         {
             // Standard events
-            for_note_channels_in_measure([&](const BMSEvent ev, int Track)
+            for_note_channels_in_measure([&](const BMSEvent ev, int track)
             {
-                Track += TrackOffset;
+                track += track_offset;
 
-                if (Track >= chart->channels) return; // UNUSABLE event
+                if (track >= chart_->channels) return; // UNUSABLE event
 
-                const double Time = get_time_for_measure_fraction(i->first, ev.fraction);
+                const double time = get_time_for_measure_fraction(i->first, ev.fraction);
 
-                chart->duration = std::max(static_cast<double>(chart->duration), Time);
+                chart_->duration = std::max(static_cast<double>(chart_->duration), time);
 
                 auto make_note = [&]()
                 {
-                    NoteData Note;
+                    NoteData note;
 
-                    Note.start = Time;
-                    Note.sound = ev.event;
-                    used_sounds[ev.event] = true;
+                    note.start = time;
+                    note.sound = ev.event;
+                    used_sounds_[ev.event] = true;
 
 
-                    measure.notes[Track].push_back(Note);
+                    measure.notes[track].push_back(note);
                     /*
                         For future reference:
-                        no, we can't get rid of LastNotes[x]
+                        no, we can't get rid of last_notes_[x]
                         otherwise you'd be bounding longnotes to
                         only one measure.
                     */
-                    LastNotes[Track] = &measure.notes[Track].back();
+                    last_notes_[track] = &measure.notes[track].back();
                 };
 
                 // is this event on the lnobj set?
-                if (LNObj.find(ev.event) == LNObj.end())
+                if (ln_obj_.find(ev.event) == ln_obj_.end())
                     make_note();
                 else // we got that this terminates a ln obj
                 {
-                    if (LastNotes[Track])
+                    if (last_notes_[track])
                     {
-                        LastNotes[Track]->end_time = Time;
-                        LastNotes[Track] = nullptr;
+                        last_notes_[track]->end_time = time;
+                        last_notes_[track] = nullptr;
                     }
                     else
                         make_note();
@@ -457,83 +461,83 @@ namespace NoteLoaderBMS
             }, side, bms::note_channel::visible, i, min_relative);
 
             // LN events
-            for_note_channels_in_measure([&](const BMSEvent ev, int Track)
+            for_note_channels_in_measure([&](const BMSEvent ev, int track)
             {
-                Track += TrackOffset;
+                track += track_offset;
 
-                const double Time = get_time_for_measure_fraction(i->first, ev.fraction);
+                const double time = get_time_for_measure_fraction(i->first, ev.fraction);
 
-                if (startTime[Track] == -1)
-                    startTime[Track] = Time;
+                if (start_time_[track] == -1)
+                    start_time_[track] = time;
                 else
                 {
-                    NoteData Note;
+                    NoteData note;
 
-                    chart->duration = std::max(static_cast<double>(chart->duration), Time);
+                    chart_->duration = std::max(static_cast<double>(chart_->duration), time);
 
-                    Note.start = startTime[Track];
-                    Note.end_time = Time;
+                    note.start = start_time_[track];
+                    note.end_time = time;
 
-                    Note.sound = ev.event;
-                    used_sounds[ev.event] = true;
+                    note.sound = ev.event;
+                    used_sounds_[ev.event] = true;
 
-                    measure.notes[Track].push_back(Note);
+                    measure.notes[track].push_back(note);
 
-                    startTime[Track] = -1;
+                    start_time_[track] = -1;
                 }
             }, side, bms::note_channel::long_note, i, min_relative);
 
 
-            for_note_channels_in_measure([&](const BMSEvent ev, int Track)
+            for_note_channels_in_measure([&](const BMSEvent ev, int track)
             {
-                const double Time = get_time_for_measure_fraction(i->first, ev.fraction);
-                NoteData Note;
-                Note.start = Time;
-                Note.sound = ev.event / 2; // Mine explosion value.
+                const double time = get_time_for_measure_fraction(i->first, ev.fraction);
+                NoteData note;
+                note.start = time;
+                note.sound = ev.event / 2; // Mine explosion value.
                 // todo: finish mine mechanics
             }, side, bms::note_channel::mine, i, min_relative);
 
-            for_note_channels_in_measure([&](const BMSEvent ev, const int Track)
+            for_note_channels_in_measure([&](const BMSEvent ev, const int track)
             {
-                const double Time = get_time_for_measure_fraction(i->first, ev.fraction);
+                const double time = get_time_for_measure_fraction(i->first, ev.fraction);
                 NoteData note;
-                note.start = Time;
+                note.start = time;
                 note.sound = ev.event; // Sound.
                 note.type = NK_INVISIBLE;
 
-                used_sounds[ev.event] = true;
-                measure.notes[Track].push_back(note);
+                used_sounds_[ev.event] = true;
+                measure.notes[track].push_back(note);
             }, side, bms::note_channel::invisible, i, min_relative);
         }
 
         void process_measure(BMSMeasureList::iterator& bms_measure)
         {
-            Measure Msr;
+            Measure msr;
 
-            Msr.length = 4 * bms_measure->second.beat_duration;
+            msr.length = 4 * bms_measure->second.beat_duration;
 
-            int baseOffset = 0;
+            int base_offset = 0;
 
             // xxx: kind of a hack, but unlikely to break unless done on purpose
-            if (!chart->transient->has_turntable && (chart->channels == 12 || chart->channels == 16))
+            if (!chart_->transient->has_turntable && (chart_->channels == 12 || chart_->channels == 16))
             {
-                baseOffset = 1;
+                base_offset = 1;
             }
 
             // see both sides, p1 and p2
-            if (!is_pms) // or BME-type PMS
+            if (!is_pms_) // or BME-type PMS
             {
                 process_measure_side(
                     bms_measure,
-                    baseOffset,
+                    base_offset,
                     bms::play_side::p1,
-                    Msr
+                    msr
                 );
                 process_measure_side(
                     bms_measure,
-                    SideBOffset + baseOffset,
+                    side_b_offset_ + base_offset,
                     bms::play_side::p2,
-                    Msr
+                    msr
                 );
             }
             else
@@ -542,30 +546,30 @@ namespace NoteLoaderBMS
                     bms_measure,
                     0,
                     bms::play_side::p1,
-                    Msr
+                    msr
                 );
                 process_measure_side(
                     bms_measure,
                     5,
                     bms::play_side::p2,
-                    Msr,
+                    msr,
                     1
                 );
             }
 
             // insert it into the difficulty structure
-            chart->transient->measures.push_back(Msr);
+            chart_->transient->measures.push_back(msr);
 
-            for (uint8_t k = 0; k < MAX_CHANNELS; k++)
+            for (uint8_t k = 0; k < max_channels; k++)
             {
                 // Our old pointers are invalid by now since the Msr structures are going to go out of scope
                 // Which means we must renew them, and that's better done here.
-                auto iter = chart->transient->measures.rbegin();
-                while (iter != chart->transient->measures.rend())
+                auto iter = chart_->transient->measures.rbegin();
+                while (iter != chart_->transient->measures.rend())
                 {
                     if (!iter->notes[k].empty())
                     {
-                        LastNotes[k] = &iter->notes[k].back();
+                        last_notes_[k] = &iter->notes[k].back();
                         break;
                     }
 
@@ -581,17 +585,17 @@ namespace NoteLoaderBMS
                 {
                     double time_secs = get_time_for_measure_fraction(bms_measure->first, time);
 
-                    used_sounds[img_index] = true;
-                    chart->transient->bgm_events.emplace_back(time_secs, img_index);
+                    used_sounds_[img_index] = true;
+                    chart_->transient->bgm_events.emplace_back(time_secs, img_index);
                 }
             }
         }
 
-        void detect_channels(const int offset, int usedChannels[max_channels_per_side],
+        void detect_channels(const int offset, int used_channels[max_channels_per_side],
                              const bms::play_side side)
         {
             // Actual autodetection
-            auto maskFromChannelAtMeasure = [&](const BMSMeasureList::iterator& i)
+            auto mask_from_channel_at_measure = [&](const BMSMeasureList::iterator& i)
             {
                 for (const auto& [channel, events] : i->second.events)
                 {
@@ -604,11 +608,11 @@ namespace NoteLoaderBMS
 
                     int offs;
 
-                    if (!is_pms)
+                    if (!is_pms_)
                     {
                         offs = translate_track_bme(info) + offset;
                         if (info.relative == relative_scratch_channel) // Turntable is going.
-                            has_turntable = true;
+                            has_turntable_ = true;
                     }
                     else
                     {
@@ -617,63 +621,63 @@ namespace NoteLoaderBMS
 
                     if (offs < max_channels_per_side)
                         // A few BMSes use the foot pedal, so we need to not overflow the array.
-                        usedChannels[offs] = 1;
+                        used_channels[offs] = 1;
                 }
             };
 
-            for (auto i = measures.begin(); i != measures.end(); ++i)
+            for (auto i = measures_.begin(); i != measures_.end(); ++i)
             {
-                maskFromChannelAtMeasure(i);
+                mask_from_channel_at_measure(i);
             }
         }
 
         int get_channel_count()
         {
-            int usedChannels[max_channels_per_side] = {};
-            int usedChannelsB[max_channels_per_side] = {};
+            int used_channels[max_channels_per_side] = {};
+            int used_channels_b[max_channels_per_side] = {};
 
-            if (is_pms)
+            if (is_pms_)
                 return 9;
 
-            LowerBound = -1;
-            UpperBound = 0;
+            lower_bound_ = -1;
+            upper_bound_ = 0;
 
             /* Autodetect channel count based off channel information */
-            detect_channels(0, usedChannels, bms::play_side::p1);
+            detect_channels(0, used_channels, bms::play_side::p1);
 
             /* Find the last channel we've used's index */
-            int FirstIndex = -1;
-            int LastIndex = 0;
+            int first_index = -1;
+            int last_index = 0;
             for (int i = 0; i < max_channels_per_side; i++)
             {
-                if (usedChannels[i] != 0)
+                if (used_channels[i] != 0)
                 {
-                    if (FirstIndex == -1) // Lowest channel being used. Used for translation back to track 0.
-                        FirstIndex = i;
+                    if (first_index == -1) // Lowest channel being used. Used for translation back to track 0.
+                        first_index = i;
 
-                    LastIndex = i;
+                    last_index = i;
                 }
             }
 
             // Use that information to add the p2 side right next to the p1 side and have a continuous thing.
-            detect_channels(0, usedChannelsB, bms::play_side::p2);
+            detect_channels(0, used_channels_b, bms::play_side::p2);
 
             // Correct if second side starts at an offset different from zero.
-            int sideBIndex = -1;
+            int side_b_index = -1;
 
             for (int i = 0; i < max_channels_per_side; i++)
-                if (usedChannelsB[i])
+                if (used_channels_b[i])
                 {
-                    sideBIndex = i;
+                    side_b_index = i;
                     break;
                 }
 
             // We found where it starts; append that starting point to the end of the left side.
 
-            if (sideBIndex >= 0)
+            if (side_b_index >= 0)
             {
-                for (int i = LastIndex + 1; i < max_channels_per_side; i++)
-                    usedChannels[i] |= usedChannelsB[i - LastIndex - 1];
+                for (int i = last_index + 1; i < max_channels_per_side; i++)
+                    used_channels[i] |= used_channels_b[i - last_index - 1];
             }
 
             // if (FirstIndex >= 0 && sideBIndex >= 0); // This means, when working with the second side, add the offset to the current track.
@@ -681,72 +685,72 @@ namespace NoteLoaderBMS
             /* Find new boundaries for used channels. This means the first channel will be the Lower Bound. */
             for (int i = 0; i < max_channels_per_side; i++)
             {
-                if (usedChannels[i] != 0)
+                if (used_channels[i] != 0)
                 {
-                    if (LowerBound == -1) // Lowest channel being used. Used for translation back to track 0.
-                        LowerBound = i;
+                    if (lower_bound_ == -1) // Lowest channel being used. Used for translation back to track 0.
+                        lower_bound_ = i;
 
-                    UpperBound = i;
+                    upper_bound_ = i;
                 }
             }
 
             // We pick the range of channels we're going to use.
-            int Range = UpperBound - LowerBound + 1;
+            int range = upper_bound_ - lower_bound_ + 1;
 
             // This means, Side B offset starts from here.
             // If the last index was 7 for instance, and the first was 0, our side B offset would be 8, first channel of second side.
             // If the last index was 5 and the first was 0, side B offset would be 6.
             // While other cases would really not make much sense, they're theorically supported, anyway.
-            SideBOffset = LastIndex + 1;
+            side_b_offset_ = last_index + 1;
 
             // We modify it for completely unused key modes to not appear
-            if (Range < 4) // 1, 2, 3
-                Range = 6;
+            if (range < 4) // 1, 2, 3
+                range = 6;
 
-            if (Range > 9 && Range < 12) // 10, 11
-                Range = 12;
+            if (range > 9 && range < 12) // 10, 11
+                range = 12;
 
-            if (Range > 12 && Range < 16) // 13, 14, 15
-                Range = 16;
+            if (range > 12 && range < 16) // 13, 14, 15
+                range = 16;
 
-            return Range;
+            return range;
         }
 
-        std::shared_ptr<BMSChartInfo> info;
+        std::shared_ptr<BMSChartInfo> info_;
 
     public:
         BMSLoader(ChartGroup* song, std::unique_ptr<Chart>& diff, const bool ispms)
         {
-            for (auto k = 0; k < MAX_CHANNELS; k++)
+            for (auto k = 0; k < max_channels; k++)
             {
-                startTime[k] = -1;
-                LastNotes[k] = nullptr;
+                start_time_[k] = -1;
+                last_notes_[k] = nullptr;
             }
 
-            has_bmp_events = false;
-            has_turntable = false;
+            has_bmp_events_ = false;
+            has_turntable_ = false;
 
-            is_pms = ispms;
-            chart = diff.get();
-            Song = song;
-            chart->has_no_audio_stream = true;
+            is_pms_ = ispms;
+            chart_ = diff.get();
+            song_ = song;
+            chart_->has_no_audio_stream = true;
 
-            info = std::make_shared<BMSChartInfo>();
-            chart->transient->specialized_info = info;
+            info_ = std::make_shared<BMSChartInfo>();
+            chart_->transient->specialized_info = info_;
         }
 
         void AddEvents(const bms::command& command)
         {
             if (command.event_channel.kind != bms::channel::meter)
             {
-                auto& events = measures[command.measure].events[command.event_channel];
+                auto& events = measures_[command.measure].events[command.event_channel];
                 events.reserve(events.size() + command.events.size());
 
                 if (command.event_channel.kind == bms::channel::bga_base ||
                     command.event_channel.kind == bms::channel::bga_layer ||
                     command.event_channel.kind == bms::channel::bga_layer_2 ||
                     command.event_channel.kind == bms::channel::bga_poor)
-                    has_bmp_events = true;
+                    has_bmp_events_ = true;
 
                 for (size_t i = 0; i < command.events.size(); ++i)
                 {
@@ -761,123 +765,123 @@ namespace NoteLoaderBMS
             }
             else // Channel 2 is a measure length event.
             {
-                measures[command.measure].beat_duration = latof(command.content);
+                measures_[command.measure].beat_duration = latof(command.content);
             }
         }
 
 
         void process_scroll_events()
         {
-            for_all_events_in_channel([&](const BMSEvent ev, const int Measure)
+            for_all_events_in_channel([&](const BMSEvent ev, const int measure)
             {
-                const auto Time = get_time_for_measure_fraction(Measure, ev.fraction);
-                if (scrolls_list.find(ev.event) != scrolls_list.end())
-                    chart->transient->scrolls.push_back(TimingSegment(Time, scrolls_list[ev.event]));
+                const auto time = get_time_for_measure_fraction(measure, ev.fraction);
+                if (scrolls_list_.find(ev.event) != scrolls_list_.end())
+                    chart_->transient->scrolls.push_back(TimingSegment(time, scrolls_list_[ev.event]));
                 else
-                    chart->transient->scrolls.push_back(TimingSegment(Time, 1));
+                    chart_->transient->scrolls.push_back(TimingSegment(time, 1));
             }, bms::channel::scrolls);
         }
 
         void CompileBMS()
         {
             /* To be done. */
-            auto& m = measures;
+            auto& m = measures_;
             if (m.empty()) return; // what
             initialize_measure_start_times();
 
             process_bpm_events();
             process_stop_events();
-            chart->transient->bps = bps_from_beat_timing(timing, chart->transient->stops, chart->offset);
+            chart_->transient->bps = bps_from_beat_timing(timing_, chart_->transient->stops, chart_->offset);
             process_scroll_events();
 
-            if (has_bmp_events)
+            if (has_bmp_events_)
             {
-                chart->transient->bmp_events.emplace();
-                auto& BMP = *chart->transient->bmp_events;
-                process_bmp_events(BMP.layer_base, bms::channel::bga_base);
-                process_bmp_events(BMP.layer_miss, bms::channel::bga_poor);
-                process_bmp_events(BMP.layer_upper, bms::channel::bga_layer);
-                process_bmp_events(BMP.layer_upper2, bms::channel::bga_layer_2);
+                chart_->transient->bmp_events.emplace();
+                auto& bmp = *chart_->transient->bmp_events;
+                process_bmp_events(bmp.layer_base, bms::channel::bga_base);
+                process_bmp_events(bmp.layer_miss, bms::channel::bga_poor);
+                process_bmp_events(bmp.layer_upper, bms::channel::bga_layer);
+                process_bmp_events(bmp.layer_upper2, bms::channel::bga_layer_2);
             }
 
-            chart->channels = get_channel_count();
+            chart_->channels = get_channel_count();
 
             // Check turntable on 5/7 key singles or doubles key count
-            if (chart->channels == 6 || chart->channels == 8 ||
-                chart->channels == 12 || chart->channels == 16)
-                chart->transient->has_turntable = has_turntable;
+            if (chart_->channels == 6 || chart_->channels == 8 ||
+                chart_->channels == 12 || chart_->channels == 16)
+                chart_->transient->has_turntable = has_turntable_;
 
             for (auto i = m.begin(); i != m.end(); ++i)
                 process_measure(i);
 
-            std::ranges::sort(chart->transient->bgm_events);
+            std::ranges::sort(chart_->transient->bgm_events);
 
             /* Copy only used sounds to the sound list */
-            for (auto& [idx, snd] : sounds)
-                if (used_sounds.contains(idx) && used_sounds[idx]) // This sound is used.
-                    chart->transient->sound_list[idx] = snd;
+            for (auto& [idx, snd] : sounds_)
+                if (used_sounds_.contains(idx) && used_sounds_[idx]) // This sound is used.
+                    chart_->transient->sound_list[idx] = snd;
 
-            if (has_bmp_events)
-                chart->transient->bmp_events->bmp_list = bitmaps;
+            if (has_bmp_events_)
+                chart_->transient->bmp_events->bmp_list = bitmaps_;
         }
 
         void SetLNObject(const int lnobj)
         {
-            LNObj.insert(lnobj);
+            ln_obj_.insert(lnobj);
         }
 
         void SetTotal(const double total)
         {
-            info->gauge_total = total;
+            info_->gauge_total = total;
         }
 
         void SetDefexRank(const double defex) const
         {
-            info->judge_rank = defex;
-            info->percentual_judgerank = true;
+            info_->judge_rank = defex;
+            info_->percentual_judgerank = true;
         }
 
         void SetJudgeRank(const double judgerank) const
         {
-            info->judge_rank = judgerank;
-            info->percentual_judgerank = false;
+            info_->judge_rank = judgerank;
+            info_->percentual_judgerank = false;
         }
 
         void SetSound(const int index, std::string command_contents)
         {
-            sounds[index] = std::move(command_contents);
+            sounds_[index] = std::move(command_contents);
         }
 
         void SetBMP(const int index, std::string command_contents)
         {
-            bitmaps[index] = std::move(command_contents);
+            bitmaps_[index] = std::move(command_contents);
         }
 
         void SetBPM(const int index, const double bpm)
         {
-            bpms[index] = bpm;
+            bpms_[index] = bpm;
         }
 
         void SetInitialBPM(const double bpm)
         {
-            timing.push_back(TimingSegment(0, bpm));
+            timing_.push_back(TimingSegment(0, bpm));
         }
 
         void SetStop(const int index, const double stopval)
         {
-            stops_list[index] = stopval;
+            stops_list_[index] = stopval;
         }
 
         void SetScroll(const int index, const double scrollval)
         {
-            scrolls_list[index] = scrollval;
+            scrolls_list_[index] = scrollval;
         }
     };
 
-    std::string command_subcontents(const std::string& Command, const std::string& Line)
+    std::string command_subcontents(const std::string& command, const std::string& line)
     {
-        const uint32_t len = Command.length();
-        return Line.substr(len);
+        const uint32_t len = command.length();
+        return line.substr(len);
     }
 
     bool is_utf8_encoded(const std::string_view data)
@@ -909,9 +913,9 @@ namespace NoteLoaderBMS
              i != subtitles.end();
              ++i)
         {
-            auto Current = *i;
-            util::to_lower(Current);
-            const char* s = Current.c_str();
+            auto current = *i;
+            util::to_lower(current);
+            const char* s = current.c_str();
 
             if (strstr(s, "normal") || strstr(s, "5key") || strstr(s, "7key") || strstr(s, "10key"))
             {
@@ -965,14 +969,14 @@ namespace NoteLoaderBMS
         return bms::tree::from_string(data.str(), error);
     }
 
-    void load_chart_from_stream(std::istream& filein, ChartGroup* Out, const bool IsPMS)
+    void load_chart_from_stream(std::istream& filein, ChartGroup* out, const bool is_pms)
     {
         auto chart = std::make_unique<Chart>();
 
         chart->meta.emplace();
         chart->transient = std::make_shared<ChartTransient>();
 
-        auto Info = std::make_unique<BMSLoader>(Out, chart, IsPMS);
+        auto info = std::make_unique<BMSLoader>(out, chart, is_pms);
 
         if (!filein)
             throw std::runtime_error("NoteLoaderBMS: input stream is not readable.");
@@ -989,7 +993,7 @@ namespace NoteLoaderBMS
             And that's what we're going to try to do.
             */
 
-        std::unordered_set<std::string> Subs; // Subtitle list
+        std::unordered_set<std::string> subs; // Subtitle list
         std::array<char, 1024> encoding_probe{};
         filein.read(encoding_probe.data(), encoding_probe.size());
         const auto encoding_probe_size = static_cast<size_t>(filein.gcount());
@@ -1014,8 +1018,8 @@ namespace NoteLoaderBMS
         }
 
         bms::parse_error tree_error{};
-        auto ParsedTree = bms::tree::from_string(bms_text, &tree_error);
-        if (!ParsedTree)
+        auto parsed_tree = bms::tree::from_string(bms_text, &tree_error);
+        if (!parsed_tree)
         {
             throw std::runtime_error("NoteLoaderBMS: failed to parse BMS control tree.");
         }
@@ -1058,45 +1062,45 @@ namespace NoteLoaderBMS
             {
                 "#subtitle", false, [&](const bms::command& command)
                 {
-                    Subs.insert(command.content);
+                    subs.insert(command.content);
                 }
             },
-            {"#title", false, [&](const bms::command& command) { Out->title = command.content; }},
+            {"#title", false, [&](const bms::command& command) { out->title = command.content; }},
             {
                 "#artist", false, [&](const bms::command& command)
                 {
-                    Out->artist = command.content;
-                    split_chart_author(Out->artist, chart->meta->author);
+                    out->artist = command.content;
+                    split_chart_author(out->artist, chart->meta->author);
                 }
             },
             {
                 "#bpm", false, [&](const bms::command& command)
                 {
-                    Info->SetInitialBPM(latof(command.content));
+                    info->SetInitialBPM(latof(command.content));
                 }
             },
             {
                 "#music", false, [&](const bms::command& command)
                 {
-                    Out->song_filename = command.content;
+                    out->song_filename = command.content;
                     chart->has_no_audio_stream = false;
-                    if (!Out->song_preview_source.string().length())
-                        Out->song_preview_source = command.content;
+                    if (!out->song_preview_source.string().length())
+                        out->song_preview_source = command.content;
                 }
             },
             {"#offset", false, [&](const bms::command& command) { chart->offset = latof(command.content); }},
-            {"#previewpoint", false, [&](const bms::command& command) { Out->preview_time = latof(command.content); }},
-            {"#previewtime", false, [&](const bms::command& command) { Out->preview_time = latof(command.content); }},
-            {"#defexrank", false, [&](const bms::command& command) { Info->SetDefexRank(latof(command.content)); }},
+            {"#previewpoint", false, [&](const bms::command& command) { out->preview_time = latof(command.content); }},
+            {"#previewtime", false, [&](const bms::command& command) { out->preview_time = latof(command.content); }},
+            {"#defexrank", false, [&](const bms::command& command) { info->SetDefexRank(latof(command.content)); }},
             {"#stagefile", false, [&](const bms::command& command) { chart->transient->stage_file = command.content; }},
-            {"#lnobj", false, [&](const bms::command& command) { Info->SetLNObject(b36toi(command.content.c_str())); }},
+            {"#lnobj", false, [&](const bms::command& command) { info->SetLNObject(b36toi(command.content.c_str())); }},
             {
                 "#difficulty", false,
                 [&](const bms::command& command) { chart->meta->name = parse_difficulty_name(command.content); }
             },
             {"#backbmp", false, [&](const bms::command& command) { chart->transient->stage_file = command.content; }},
-            {"#preview", false, [&](const bms::command& command) { Out->song_preview_source = command.content; }},
-            {"#total", false, [&](const bms::command& command) { Info->SetTotal(latof(command.content)); }},
+            {"#preview", false, [&](const bms::command& command) { out->song_preview_source = command.content; }},
+            {"#total", false, [&](const bms::command& command) { info->SetTotal(latof(command.content)); }},
             {
                 "#playlevel", false, [&](const bms::command& command)
                 {
@@ -1104,13 +1108,13 @@ namespace NoteLoaderBMS
                         chart->level = std::stoll(command.content);
                 }
             },
-            {"#rank", false, [&](const bms::command& command) { Info->SetJudgeRank(latof(command.content)); }},
+            {"#rank", false, [&](const bms::command& command) { info->SetJudgeRank(latof(command.content)); }},
             {"#maker", false, [&](const bms::command& command) { chart->meta->author = command.content; }},
             {
                 "#wav", true, [&](const bms::command& command)
                 {
                     const std::string index_str = command_subcontents("#WAV", command.name);
-                    Info->SetSound(b36toi(index_str.c_str()), command.content);
+                    info->SetSound(b36toi(index_str.c_str()), command.content);
                 }
             },
             {
@@ -1118,37 +1122,37 @@ namespace NoteLoaderBMS
                 {
                     const std::string index_str = command_subcontents("#BMP", command.name);
                     const int index = b36toi(index_str.c_str());
-                    Info->SetBMP(index, command.content);
+                    info->SetBMP(index, command.content);
                     if (index == 1)
-                        Out->background_filename = command.content;
+                        out->background_filename = command.content;
                 }
             },
             {
                 "#bpm", true, [&](const bms::command& command)
                 {
                     const std::string index_str = command_subcontents("#BPM", command.name);
-                    Info->SetBPM(b36toi(index_str.c_str()), latof(command.content));
+                    info->SetBPM(b36toi(index_str.c_str()), latof(command.content));
                 }
             },
             {
                 "#stop", true, [&](const bms::command& command)
                 {
                     const std::string index_str = command_subcontents("#STOP", command.name);
-                    Info->SetStop(b36toi(index_str.c_str()), latof(command.content));
+                    info->SetStop(b36toi(index_str.c_str()), latof(command.content));
                 }
             },
             {
                 "#exbpm", true, [&](const bms::command& command)
                 {
                     const std::string index_str = command_subcontents("#EXBPM", command.name);
-                    Info->SetBPM(b36toi(index_str.c_str()), latof(command.content));
+                    info->SetBPM(b36toi(index_str.c_str()), latof(command.content));
                 }
             },
             {
                 "#scroll", true, [&](const bms::command& command)
                 {
                     const std::string index_str = command_subcontents("#SCROLL", command.name);
-                    Info->SetScroll(b36toi(index_str.c_str()), latof(command.content));
+                    info->SetScroll(b36toi(index_str.c_str()), latof(command.content));
                 }
             },
         };
@@ -1167,31 +1171,31 @@ namespace NoteLoaderBMS
             }
 
             if (command.type == bms::command_type::events)
-                Info->AddEvents(command);
+                info->AddEvents(command);
         };
 
-        for (const auto& tree_command : ParsedTree->evaluate())
+        for (const auto& tree_command : parsed_tree->evaluate())
             dispatch_command(tree_command);
 
         /* When all's said and done, "compile" the bms. */
-        Info->CompileBMS();
+        info->CompileBMS();
 
         // First try to find a suiting subtitle
-        std::string NewTitle = get_subtitles(Out->title, Subs);
+        std::string new_title = get_subtitles(out->title, subs);
         if (chart->meta->name.empty())
-            chart->meta->name = get_chart_name_from_subtitles(Subs);
+            chart->meta->name = get_chart_name_from_subtitles(subs);
         else
-            get_chart_name_from_subtitles(Subs); // has side-effects and removes difficulty name if applicable
+            get_chart_name_from_subtitles(subs); // has side-effects and removes difficulty name if applicable
 
         // If we've got a title that's usuable then why not use it.
-        if (!NewTitle.empty())
-            Out->title = NewTitle.substr(0, NewTitle.find_last_not_of(' ') + 1);
+        if (!new_title.empty())
+            out->title = new_title.substr(0, new_title.find_last_not_of(' ') + 1);
 
-        if (Subs.size() > 1)
-            Out->subtitle = util::join(Subs, " ");
-        else if (Subs.size() == 1)
-            Out->subtitle = *Subs.begin();
+        if (subs.size() > 1)
+            out->subtitle = util::join(subs, " ");
+        else if (subs.size() == 1)
+            out->subtitle = *subs.begin();
 
-        Out->charts.push_back(std::move(chart));
+        out->charts.push_back(std::move(chart));
     }
 }
