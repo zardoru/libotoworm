@@ -9,8 +9,10 @@
 #include <set>
 #include <unordered_set>
 #include <random>
-#include <regex>
+#include <array>
+#include <cctype>
 #include <fstream>
+#include <iterator>
 #include <sstream>
 #include <string_view>
 
@@ -41,33 +43,89 @@
 
 	Since most information is in japanese it's likely the implementation won't be perfect at the start.
 */
-// 3 digits for the measure, then the channel
-static const std::regex RegexDataDeclaration("(\\d{3})([a-zA-Z0-9]{2})", std::regex::optimize);
-
-// Subtitles.
-static const std::regex RegexSubtitle(R"(([~\-(\[<"].*?[\]\)~>"\-])$)", std::regex::optimize);
-
-// Chart author.
-static const std::regex RegexChartAuthor(R"(\s*[\/_]?\s*(?:obj|note)\.?\s*[:_]?\s*(.*))", std::regex::icase);
-
 namespace NoteLoaderBMS
 {
     constexpr int max_channels_per_side = 25; // 24k + 1
     using namespace otoworm;
 
+    constexpr std::string_view subtitle_openers = "~-([<\"";
+    constexpr std::string_view subtitle_closers = "])~>\"-";
+
+    bool starts_with_case_insensitive(
+        const std::string_view text,
+        const size_t offset,
+        const std::string_view prefix)
+    {
+        if (text.size() - offset < prefix.size())
+            return false;
+
+        for (size_t i = 0; i < prefix.size(); ++i)
+        {
+            if (std::tolower(static_cast<unsigned char>(text[offset + i])) != prefix[i])
+                return false;
+        }
+
+        return true;
+    }
+
+    bool split_chart_author(std::string& artist, std::string& chart_author)
+    {
+        const auto skip_whitespace = [&artist](size_t& position)
+        {
+            while (position < artist.size() &&
+                   std::isspace(static_cast<unsigned char>(artist[position])))
+                ++position;
+        };
+
+        for (size_t start = 0; start < artist.size(); ++start)
+        {
+            size_t position = start;
+            skip_whitespace(position);
+
+            if (position < artist.size() && (artist[position] == '/' || artist[position] == '_'))
+                ++position;
+
+            skip_whitespace(position);
+
+            size_t marker_length = 0;
+            if (starts_with_case_insensitive(artist, position, "obj"))
+                marker_length = 3;
+            else if (starts_with_case_insensitive(artist, position, "note"))
+                marker_length = 4;
+            else
+                continue;
+
+            position += marker_length;
+            if (position < artist.size() && artist[position] == '.')
+                ++position;
+
+            skip_whitespace(position);
+            if (position < artist.size() && (artist[position] == ':' || artist[position] == '_'))
+                ++position;
+
+            skip_whitespace(position);
+            chart_author = artist.substr(position);
+            artist.erase(start);
+            return true;
+        }
+
+        return false;
+    }
 
     // Returns: Out: a std::vector with all the subtitles, std::string: The title without the subtitles.
     std::string get_subtitles(const std::string& SLine, std::unordered_set<std::string>& Out)
     {
-        std::smatch m;
-        std::string matchL = SLine;
-        while (regex_search(matchL, m, RegexSubtitle))
+        std::string ret = SLine;
+        if (!ret.empty() && subtitle_closers.find(ret.back()) != std::string_view::npos)
         {
-            Out.insert(m[1]);
-            matchL = m.suffix();
+            const auto subtitle_start = ret.find_first_of(subtitle_openers);
+            if (subtitle_start != std::string::npos)
+            {
+                Out.insert(ret.substr(subtitle_start));
+                ret.erase(subtitle_start);
+            }
         }
 
-        std::string ret = regex_replace(SLine, RegexSubtitle, "");
         util::trim(ret);
         return ret;
     }
@@ -526,8 +584,6 @@ namespace NoteLoaderBMS
                     used_sounds[img_index] = true;
                     chart->transient->bgm_events.emplace_back(time_secs, img_index);
                 }
-
-                std::ranges::sort(chart->transient->bgm_events);
             }
         }
 
@@ -679,34 +735,33 @@ namespace NoteLoaderBMS
             chart->transient->specialized_info = info;
         }
 
-        void ParseEvents(const int msr, const bms::channel_value chan, const std::string& cmd)
+        void AddEvents(const bms::command& command)
         {
-            const auto CommandLength = cmd.length() / 2;
-
-            if (chan.kind != bms::channel::meter)
+            if (command.event_channel.kind != bms::channel::meter)
             {
-                measures[msr].events[chan].reserve(CommandLength);
+                auto& events = measures[command.measure].events[command.event_channel];
+                events.reserve(events.size() + command.events.size());
 
-                if (chan.kind == bms::channel::bga_base || chan.kind == bms::channel::bga_layer
-                    || chan.kind == bms::channel::bga_layer_2 || chan.kind == bms::channel::bga_poor)
+                if (command.event_channel.kind == bms::channel::bga_base ||
+                    command.event_channel.kind == bms::channel::bga_layer ||
+                    command.event_channel.kind == bms::channel::bga_layer_2 ||
+                    command.event_channel.kind == bms::channel::bga_poor)
                     has_bmp_events = true;
 
-                for (size_t i = 0; i < CommandLength; i++)
+                for (size_t i = 0; i < command.events.size(); ++i)
                 {
-                    std::string CharEvent = cmd.substr(i * 2, 2);
-                    const int Event = b36toi(CharEvent.c_str());
-                    const double Fraction = static_cast<double>(i) / CommandLength;
+                    const int event = command.events[i];
+                    const double fraction = static_cast<double>(i) / command.events.size();
 
-                    if (Event == 0) // Nothing to see here?
+                    if (event == 0) // Nothing to see here?
                         continue;
 
-                    measures[msr].events[chan].push_back({Event, Fraction});
+                    events.push_back({event, fraction});
                 }
             }
             else // Channel 2 is a measure length event.
             {
-                const double Event = latof(cmd);
-                measures[msr].beat_duration = Event;
+                measures[command.measure].beat_duration = latof(command.content);
             }
         }
 
@@ -754,6 +809,8 @@ namespace NoteLoaderBMS
 
             for (auto i = m.begin(); i != m.end(); ++i)
                 process_measure(i);
+
+            std::ranges::sort(chart->transient->bgm_events);
 
             /* Copy only used sounds to the sound list */
             for (auto& [idx, snd] : sounds)
@@ -823,26 +880,26 @@ namespace NoteLoaderBMS
         return Line.substr(len);
     }
 
-    bool is_utf8_encoded(const char* Line)
+    bool is_utf8_encoded(const std::string_view data)
     {
-        bool IsU8 = false;
-
-        if (!utf8::starts_with_bom(Line, Line + 1024))
-        {
-            if (utf8::is_valid(Line, Line + 1024))
-                IsU8 = true;
-        }
-        else
-            IsU8 = true;
-        return IsU8;
+        return utf8::starts_with_bom(data.begin(), data.end()) ||
+            utf8::is_valid(data.begin(), data.end());
     }
 
-    bool isany(const char x, const char* p, const ptrdiff_t len)
+    std::string normalize_bms_line(std::string line, const bool source_is_utf8)
     {
-        for (int i = 0; i < len; i++)
-            if (x == p[i]) return true;
+        if (!line.empty() && line.back() == '\r')
+            line.pop_back();
 
-        return false;
+        if (!source_is_utf8)
+            return locale::sjis_to_u8(std::move(line));
+
+        if (utf8::is_valid(line.begin(), line.end()))
+            return line;
+
+        std::string normalized;
+        utf8::replace_invalid(line.begin(), line.end(), std::back_inserter(normalized));
+        return normalized;
     }
 
     std::string get_chart_name_from_subtitles(std::unordered_set<std::string>& subtitles)
@@ -933,58 +990,27 @@ namespace NoteLoaderBMS
             */
 
         std::unordered_set<std::string> Subs; // Subtitle list
-        std::string Line;
-        bool IsU8;
-        char TestU8[1025];
-        int cnt = filein.readsome(TestU8, 1024);
-        TestU8[cnt] = 0;
+        std::array<char, 1024> encoding_probe{};
+        filein.read(encoding_probe.data(), encoding_probe.size());
+        const auto encoding_probe_size = static_cast<size_t>(filein.gcount());
+        filein.clear();
+        filein.seekg(0);
+        if (!filein)
+            throw std::runtime_error("NoteLoaderBMS: input stream is not seekable.");
 
         // Sonorous UTF-8 extension
-        IsU8 = is_utf8_encoded(TestU8);
-        filein.seekg(0);
+        const bool is_utf8 = is_utf8_encoded(
+            std::string_view(encoding_probe.data(), encoding_probe_size));
 
         std::string bms_text;
-        while (filein)
+        std::string line;
+        while (std::getline(filein, line))
         {
-            getline(filein, Line);
-
-            util::replace_all(Line, "[\r\n]", "");
-
-            if (Line.length() == 0 || Line.find_first_of('#') == std::string::npos)
+            if (line.find('#') == std::string::npos)
                 continue;
 
-            // allow indentation
-            Line = Line.substr(Line.find_first_of('#'));
-
-            auto space = Line.find_first_of(" \t");
-            if (space != std::string::npos)
-            {
-                std::string command_part = Line.substr(0, space);
-                std::string command_contents = Line.substr(space + 1);
-                util::trim(command_contents);
-
-                std::string tmp;
-                if (!IsU8)
-                    command_contents = locale::sjis_to_u8(command_contents);
-
-                try
-                {
-                    utf8::replace_invalid(command_contents.begin(), command_contents.end(), back_inserter(tmp));
-                }
-                catch (...)
-                {
-                    if (IsU8)
-                    {
-                        IsU8 = false;
-                        tmp = locale::sjis_to_u8(command_contents);
-                    }
-                }
-
-                Line = command_part + " " + tmp;
-            }
-
-            bms_text += Line;
-            bms_text += '\n';
+            bms_text += normalize_bms_line(std::move(line), is_utf8);
+            bms_text.push_back('\n');
         }
 
         bms::parse_error tree_error{};
@@ -994,18 +1020,11 @@ namespace NoteLoaderBMS
             throw std::runtime_error("NoteLoaderBMS: failed to parse BMS control tree.");
         }
 
-        struct command_context
-        {
-            bms::command command_node;
-            std::string command;
-            std::string contents;
-        };
-
         struct command_dispatch
         {
             std::string_view command;
             bool prefix;
-            std::function<void(command_context&)> action;
+            std::function<void(const bms::command&)> action;
         };
 
         auto parse_difficulty_name = [](const std::string& value)
@@ -1024,155 +1043,135 @@ namespace NoteLoaderBMS
             }
         };
 
-        std::function<void(command_context&)> dispatch_command;
+        std::function<void(const bms::command&)> dispatch_command;
 
         const std::vector<command_dispatch> command_dispatch_table = {
             {
-                "#ext", false, [&](command_context& ctx)
+                "#ext", false, [&](const bms::command& command)
                 {
-                    const auto ext_command = bms::parse_line(ctx.contents, ctx.command_node.line_number);
+                    const auto ext_command = bms::parse_line(command.content, command.line_number);
                     if (ext_command)
-                    {
-                        command_context nested{*ext_command, ext_command->name, ext_command->content};
-                        dispatch_command(nested);
-                    }
+                        dispatch_command(*ext_command);
                 }
             },
-            {"#genre", false, [&](command_context& ctx) { chart->transient->genre = ctx.contents; }},
+            {"#genre", false, [&](const bms::command& command) { chart->transient->genre = command.content; }},
             {
-                "#subtitle", false, [&](command_context& ctx)
+                "#subtitle", false, [&](const bms::command& command)
                 {
-                    util::trim(ctx.contents);
-                    Subs.insert(ctx.contents);
+                    Subs.insert(command.content);
                 }
             },
-            {"#title", false, [&](command_context& ctx) { Out->title = util::trim(ctx.contents); }},
+            {"#title", false, [&](const bms::command& command) { Out->title = command.content; }},
             {
-                "#artist", false, [&](command_context& ctx)
+                "#artist", false, [&](const bms::command& command)
                 {
-                    Out->artist = ctx.contents;
-
-                    const size_t np = Out->artist.find_first_not_of(' ');
-                    if (np == std::string::npos)
-                        return;
-
-                    std::string author = Out->artist.substr(np);
-                    std::smatch sm;
-                    if (regex_search(author, sm, RegexChartAuthor))
-                    {
-                        chart->meta->author = sm[1];
-                        author = regex_replace(author, RegexChartAuthor, "\0");
-                    }
-
-                    Out->artist = author;
+                    Out->artist = command.content;
+                    split_chart_author(Out->artist, chart->meta->author);
                 }
             },
             {
-                "#bpm", false, [&](command_context& ctx)
+                "#bpm", false, [&](const bms::command& command)
                 {
-                    Info->SetInitialBPM(latof(ctx.contents));
+                    Info->SetInitialBPM(latof(command.content));
                 }
             },
             {
-                "#music", false, [&](command_context& ctx)
+                "#music", false, [&](const bms::command& command)
                 {
-                    Out->song_filename = ctx.contents;
+                    Out->song_filename = command.content;
                     chart->has_no_audio_stream = false;
                     if (!Out->song_preview_source.string().length())
-                        Out->song_preview_source = ctx.contents;
+                        Out->song_preview_source = command.content;
                 }
             },
-            {"#offset", false, [&](command_context& ctx) { chart->offset = latof(ctx.contents); }},
-            {"#previewpoint", false, [&](command_context& ctx) { Out->preview_time = latof(ctx.contents); }},
-            {"#previewtime", false, [&](command_context& ctx) { Out->preview_time = latof(ctx.contents); }},
-            {"#defexrank", false, [&](command_context& ctx) { Info->SetDefexRank(latof(ctx.contents)); }},
-            {"#stagefile", false, [&](command_context& ctx) { chart->transient->stage_file = ctx.contents; }},
-            {"#lnobj", false, [&](command_context& ctx) { Info->SetLNObject(b36toi(ctx.contents.c_str())); }},
+            {"#offset", false, [&](const bms::command& command) { chart->offset = latof(command.content); }},
+            {"#previewpoint", false, [&](const bms::command& command) { Out->preview_time = latof(command.content); }},
+            {"#previewtime", false, [&](const bms::command& command) { Out->preview_time = latof(command.content); }},
+            {"#defexrank", false, [&](const bms::command& command) { Info->SetDefexRank(latof(command.content)); }},
+            {"#stagefile", false, [&](const bms::command& command) { chart->transient->stage_file = command.content; }},
+            {"#lnobj", false, [&](const bms::command& command) { Info->SetLNObject(b36toi(command.content.c_str())); }},
             {
                 "#difficulty", false,
-                [&](command_context& ctx) { chart->meta->name = parse_difficulty_name(ctx.contents); }
+                [&](const bms::command& command) { chart->meta->name = parse_difficulty_name(command.content); }
             },
-            {"#backbmp", false, [&](command_context& ctx) { chart->transient->stage_file = ctx.contents; }},
-            {"#preview", false, [&](command_context& ctx) { Out->song_preview_source = ctx.contents; }},
-            {"#total", false, [&](command_context& ctx) { Info->SetTotal(latof(ctx.contents)); }},
+            {"#backbmp", false, [&](const bms::command& command) { chart->transient->stage_file = command.content; }},
+            {"#preview", false, [&](const bms::command& command) { Out->song_preview_source = command.content; }},
+            {"#total", false, [&](const bms::command& command) { Info->SetTotal(latof(command.content)); }},
             {
-                "#playlevel", false, [&](command_context& ctx)
+                "#playlevel", false, [&](const bms::command& command)
                 {
-                    if (util::is_numeric(ctx.contents.c_str()))
-                        chart->level = std::stoll(ctx.contents);
+                    if (util::is_numeric(command.content.c_str()))
+                        chart->level = std::stoll(command.content);
                 }
             },
-            {"#rank", false, [&](command_context& ctx) { Info->SetJudgeRank(latof(ctx.contents)); }},
-            {"#maker", false, [&](command_context& ctx) { chart->meta->author = ctx.contents; }},
+            {"#rank", false, [&](const bms::command& command) { Info->SetJudgeRank(latof(command.content)); }},
+            {"#maker", false, [&](const bms::command& command) { chart->meta->author = command.content; }},
             {
-                "#wav", true, [&](command_context& ctx)
+                "#wav", true, [&](const bms::command& command)
                 {
-                    const std::string index_str = command_subcontents("#WAV", ctx.command);
-                    Info->SetSound(b36toi(index_str.c_str()), ctx.contents);
+                    const std::string index_str = command_subcontents("#WAV", command.name);
+                    Info->SetSound(b36toi(index_str.c_str()), command.content);
                 }
             },
             {
-                "#bmp", true, [&](command_context& ctx)
+                "#bmp", true, [&](const bms::command& command)
                 {
-                    const std::string index_str = command_subcontents("#BMP", ctx.command);
+                    const std::string index_str = command_subcontents("#BMP", command.name);
                     const int index = b36toi(index_str.c_str());
-                    Info->SetBMP(index, ctx.contents);
+                    Info->SetBMP(index, command.content);
                     if (index == 1)
-                        Out->background_filename = ctx.contents;
+                        Out->background_filename = command.content;
                 }
             },
             {
-                "#bpm", true, [&](command_context& ctx)
+                "#bpm", true, [&](const bms::command& command)
                 {
-                    const std::string index_str = command_subcontents("#BPM", ctx.command);
-                    Info->SetBPM(b36toi(index_str.c_str()), latof(ctx.contents));
+                    const std::string index_str = command_subcontents("#BPM", command.name);
+                    Info->SetBPM(b36toi(index_str.c_str()), latof(command.content));
                 }
             },
             {
-                "#stop", true, [&](command_context& ctx)
+                "#stop", true, [&](const bms::command& command)
                 {
-                    const std::string index_str = command_subcontents("#STOP", ctx.command);
-                    Info->SetStop(b36toi(index_str.c_str()), latof(ctx.contents));
+                    const std::string index_str = command_subcontents("#STOP", command.name);
+                    Info->SetStop(b36toi(index_str.c_str()), latof(command.content));
                 }
             },
             {
-                "#exbpm", true, [&](command_context& ctx)
+                "#exbpm", true, [&](const bms::command& command)
                 {
-                    const std::string index_str = command_subcontents("#EXBPM", ctx.command);
-                    Info->SetBPM(b36toi(index_str.c_str()), latof(ctx.contents));
+                    const std::string index_str = command_subcontents("#EXBPM", command.name);
+                    Info->SetBPM(b36toi(index_str.c_str()), latof(command.content));
                 }
             },
             {
-                "#scroll", true, [&](command_context& ctx)
+                "#scroll", true, [&](const bms::command& command)
                 {
-                    const std::string index_str = command_subcontents("#SCROLL", ctx.command);
-                    Info->SetScroll(b36toi(index_str.c_str()), latof(ctx.contents));
+                    const std::string index_str = command_subcontents("#SCROLL", command.name);
+                    Info->SetScroll(b36toi(index_str.c_str()), latof(command.content));
                 }
             },
         };
 
-        dispatch_command = [&](command_context& ctx)
+        dispatch_command = [&](const bms::command& command)
         {
             for (const auto& entry : command_dispatch_table)
             {
-                if ((!entry.prefix && ctx.command == entry.command) ||
-                    (entry.prefix && ctx.command.rfind(std::string(entry.command), 0) == 0 &&
-                        ctx.command.size() > entry.command.size()))
+                if ((!entry.prefix && command.name == entry.command) ||
+                    (entry.prefix && command.name.starts_with(entry.command) &&
+                        command.name.size() > entry.command.size()))
                 {
-                    entry.action(ctx);
+                    entry.action(command);
                     return;
                 }
             }
 
-            if (ctx.command_node.type == bms::command_type::events)
-                Info->ParseEvents(ctx.command_node.measure, ctx.command_node.event_channel, ctx.contents);
+            if (command.type == bms::command_type::events)
+                Info->AddEvents(command);
         };
 
         for (const auto& tree_command : ParsedTree->evaluate())
-        {
-            command_context ctx{tree_command, tree_command.name, tree_command.content};
-            dispatch_command(ctx);
-        }
+            dispatch_command(tree_command);
 
         /* When all's said and done, "compile" the bms. */
         Info->CompileBMS();

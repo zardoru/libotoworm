@@ -580,7 +580,10 @@ std::optional<tree> tree::from_string(const std::string& data, parse_error* erro
     size_t line_number = 0;
 
     while (std::getline(input, line)) {
-        util::replace_all(line, "[\r\n]", "");
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+
         auto parsed = command_from_line(line);
         if (!parsed) {
             ++line_number;

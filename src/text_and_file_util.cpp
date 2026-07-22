@@ -1,4 +1,6 @@
+#include <algorithm>
 #include <cstdlib>
+#include <cctype>
 #include <string>
 #include <vector>
 #include <regex>
@@ -80,8 +82,20 @@ namespace otoworm::util
 
     std::string trim(std::string& str)
     {
-        const std::regex trimreg("^\\s*(.*?)\\s*$");
-        return str = regex_replace(str, trimreg, "$1");
+        const auto is_whitespace = [](const unsigned char character) {
+            return std::isspace(character) != 0;
+        };
+
+        const auto first = std::find_if_not(str.begin(), str.end(), is_whitespace);
+        if (first == str.end()) {
+            str.clear();
+            return str;
+        }
+
+        const auto last = std::find_if_not(str.rbegin(), str.rend(), is_whitespace).base();
+        str.erase(last, str.end());
+        str.erase(str.begin(), first);
+        return str;
     }
 
     std::string replace_all(std::string& str, const std::string& seq, const std::string what)
@@ -123,13 +137,6 @@ namespace otoworm::util
 
         if (removeSlash)
             replace_all(S, "/", "");
-    }
-
-    std::string get_sha256_for_data(const std::string_view data)
-    {
-        SHA256 SHA;
-        SHA.add(data.data(), data.size());
-        return std::string(SHA.getHash());
     }
 
     std::string get_sha256_for_file(std::filesystem::path Filename)

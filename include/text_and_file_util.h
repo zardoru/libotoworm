@@ -2,7 +2,6 @@
 
 #include <filesystem>
 #include <string>
-#include <string_view>
 #include <vector>
 
 namespace otoworm::util
@@ -11,7 +10,6 @@ namespace otoworm::util
     bool is_numeric(const char* s);	
 
     time_t get_last_modified_time(std::filesystem::path Path);
-    std::string get_sha256_for_data(std::string_view data);
     std::string get_sha256_for_file(std::filesystem::path Filename);
     
     void normalize_filename(std::string &S, bool removeSlash, bool noAbsolute = true);
