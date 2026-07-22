@@ -3,6 +3,7 @@
 #include <text_and_file_util.h>
 
 #include <array>
+#include <format>
 #include <fstream>
 
 using namespace otoworm;
