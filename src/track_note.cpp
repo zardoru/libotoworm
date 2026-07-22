@@ -1,7 +1,7 @@
 #include <ChartGroup.h>
 
 namespace otoworm {
-    int GetFractionKindBeat(double frac);
+    int get_fraction_kind_beat(double frac);
 
     TrackNote::TrackNote() {
     }
@@ -32,7 +32,7 @@ namespace otoworm {
 
     /* calculate the beat snap for this fraction */
     void TrackNote::assign_fraction(const double frac) {
-        fraction_kind = GetFractionKindBeat(frac);
+        fraction_kind = get_fraction_kind_beat(frac);
     }
 
     void TrackNote::assign_position(const double Position, const double endPosition) {

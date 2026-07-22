@@ -250,30 +250,7 @@ double quantize_beat(const double Beat)
 
 #define FRACKIND(x,y) if(Row%x==0)fracKind=y
 
-int GetFractionKindMeasure(const double frac)
-{
-    int fracKind = 1;
-    const int Row = quantize_fraction_measure(frac);
-
-    if (!Row) return 4;
-
-    FRACKIND(2, 96);
-    FRACKIND(3, 64);
-    FRACKIND(4, 48);
-    FRACKIND(6, 32);
-    FRACKIND(8, 24);
-    FRACKIND(12, 16);
-    FRACKIND(16, 12);
-    FRACKIND(24, 8);
-    FRACKIND(32, 6);
-    FRACKIND(48, 4);
-    FRACKIND(64, 3);
-    FRACKIND(96, 2);
-
-    return fracKind;
-}
-
-int GetFractionKindBeat(const double frac)
+int get_fraction_kind_beat(const double frac)
 {
     int fracKind = 1;
     const int Row = quantize_fraction_beat(frac) * 48.0;
