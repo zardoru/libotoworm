@@ -125,6 +125,13 @@ namespace otoworm::util
             replace_all(S, "/", "");
     }
 
+    std::string get_sha256_for_data(const std::string_view data)
+    {
+        SHA256 SHA;
+        SHA.add(data.data(), data.size());
+        return std::string(SHA.getHash());
+    }
+
     std::string get_sha256_for_file(std::filesystem::path Filename)
     {
         SHA256 SHA;

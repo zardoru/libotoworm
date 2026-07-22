@@ -5,6 +5,7 @@
 #include <array>
 #include <format>
 #include <fstream>
+#include <sstream>
 
 using namespace otoworm;
 
@@ -131,10 +132,26 @@ std::shared_ptr<ChartGroup> otoworm::load_song_from_file(std::filesystem::path f
         if (extension != loader.extension)
             continue;
 
-        std::ifstream input(filename, std::ios::binary);
-        if (!input)
+        std::ifstream file_input(filename, std::ios::binary | std::ios::ate);
+        if (!file_input)
             throw std::runtime_error(std::format("couldn't open {} for reading", filename.string()));
 
+        const auto file_size = file_input.tellg();
+        if (file_size == std::streampos(-1))
+            throw std::runtime_error(std::format("couldn't determine the size of {}", filename.string()));
+
+        const auto byte_count = static_cast<std::streamsize>(file_size);
+        if (byte_count < 0)
+            throw std::runtime_error(std::format("{} is too large to read", filename.string()));
+
+        std::string file_data(static_cast<size_t>(byte_count), '\0');
+        file_input.seekg(0);
+        file_input.read(file_data.data(), byte_count);
+        if (file_input.gcount() != byte_count)
+            throw std::runtime_error(std::format("couldn't read {} completely", filename.string()));
+
+        const auto hash = util::get_sha256_for_data(file_data);
+        std::istringstream input(std::move(file_data), std::ios::in | std::ios::binary);
         loader.load(input, group.get());
 
         if (extension == L".ft2")
@@ -151,7 +168,6 @@ std::shared_ptr<ChartGroup> otoworm::load_song_from_file(std::filesystem::path f
             }
         }
 
-        const auto hash = util::get_sha256_for_file(filename);
         auto chart_index = 0;
         for (auto& chart : group->charts)
         {
