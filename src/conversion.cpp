@@ -28,9 +28,9 @@ std::string sjis_to_u8(std::string line)
         iconv_t conv;
         char buf[MAX_STRING_SIZE];
         char* out = buf;
-        size_t srcLength = Line.length();
+        size_t srcLength = line.length();
         size_t dstLength = MAX_STRING_SIZE;
-        const char* in = Line.c_str();
+        const char* in = line.c_str();
 
         conv = iconv_open("UTF-8", "SHIFT_JIS");
         iconv(conv, (char**)&in, &srcLength, (char**)&out, &dstLength);
