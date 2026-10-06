@@ -120,7 +120,7 @@ namespace otoworm::util
 #else
             // az: bah. fucking windows.
             struct _stat s{};
-            _wstat(Path.c_str(), &s);
+            _wstat(path.c_str(), &s);
             return s.st_mtime;
 #endif
 		}

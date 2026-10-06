@@ -232,7 +232,7 @@ void DoCommonSMCommands(std::string command, std::string command_contents, Chart
         if (utf8::is_valid(command_contents.begin(), command_contents.end()))
         {
 #ifdef WIN32
-            out->title = CommandContents;
+            out->title = command_contents;
 #else
             out->title = command_contents;
             try
@@ -255,7 +255,7 @@ void DoCommonSMCommands(std::string command, std::string command_contents, Chart
         if (utf8::is_valid(command_contents.begin(), command_contents.end()))
         {
 #ifdef WIN32
-            out->subtitle = CommandContents;
+            out->subtitle = command_contents;
 #else
             out->subtitle = command_contents;
             try
@@ -278,7 +278,7 @@ void DoCommonSMCommands(std::string command, std::string command_contents, Chart
         if (utf8::is_valid(command_contents.begin(), command_contents.end()))
         {
 #ifdef WIN32
-            out->artist = CommandContents;
+            out->artist = command_contents;
 #else
             out->artist = command_contents;
             try

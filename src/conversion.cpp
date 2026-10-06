@@ -19,7 +19,7 @@ std::string sjis_to_u8(std::string line)
 #ifdef WIN32
         wchar_t u16s[MAX_STRING_SIZE];
         char mbs[MAX_STRING_SIZE];
-        size_t len = MultiByteToWideChar(932, 0, Line.c_str(), Line.length(), u16s, MAX_STRING_SIZE);
+        size_t len = MultiByteToWideChar(932, 0, line.c_str(), line.length(), u16s, MAX_STRING_SIZE);
         len = WideCharToMultiByte(CP_UTF8, 0, u16s, len, mbs, MAX_STRING_SIZE, NULL, NULL);
         mbs[len] = 0;
         return std::string(mbs);
@@ -79,7 +79,7 @@ std::wstring widen(std::string line)
 	std::string to_locale_str(std::wstring line) {
 #ifdef WIN32
         char mbs[MAX_STRING_SIZE];
-        size_t len = WideCharToMultiByte(0, 0, Line.c_str(), -1, mbs, MAX_STRING_SIZE, NULL, 0);
+        size_t len = WideCharToMultiByte(0, 0, line.c_str(), -1, mbs, MAX_STRING_SIZE, NULL, 0);
         mbs[len] = 0;
         return std::string(mbs);
 #else

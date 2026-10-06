@@ -6,8 +6,13 @@ project(libotoworm
 
 option(LIBOTOWORM_BUILD_SHARED "Build libotoworm as a shared library" OFF)
 
-find_package(ZLIB REQUIRED)
-find_package(Iconv REQUIRED)
+if(NOT TARGET ZLIB::ZLIB)
+    find_package(ZLIB REQUIRED)
+endif()
+# Windows converts Shift-JIS through the Win32 NLS API instead of iconv.
+if(NOT WIN32)
+    find_package(Iconv REQUIRED)
+endif()
 
 set(LIBOTOWORM_SOURCES
     src/bms.cpp
@@ -48,7 +53,10 @@ target_include_directories(otoworm
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src-thirdparty)
 
-target_link_libraries(otoworm PUBLIC ZLIB::ZLIB Iconv::Iconv)
+target_link_libraries(otoworm PUBLIC ZLIB::ZLIB)
+if(NOT WIN32)
+    target_link_libraries(otoworm PUBLIC Iconv::Iconv)
+endif()
 
 if(APPLE)
     target_compile_definitions(otoworm PRIVATE DARWIN)
