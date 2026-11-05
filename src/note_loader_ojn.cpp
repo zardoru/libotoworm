@@ -365,32 +365,31 @@ bool is_valid_ojn(std::istream& filein, OjnHeader* head)
     return strcmp(head->signature, "ojn") == 0;
 }
 
-const char* load_ojn_cover(const std::filesystem::path& filename, size_t& read)
+std::unique_ptr<uint8_t[]> load_ojn_cover(const std::filesystem::path& filename, size_t& read)
 {
     std::fstream filein(filename.string(), std::ios::binary | std::ios::in);
     OjnHeader head = {};
-    char* out;
 
     if (!filein)
     {
         // Log::Printf("NoteLoaderOJN: %s could not be opened\n", filename.c_str());
-        return 0;
+        return nullptr;
     }
 
     if (!is_valid_ojn(filein, &head))
-        return "";
+        return nullptr;
 
-    out = new char[head.cover_size];
+    auto out = std::make_unique<uint8_t[]>(head.cover_size);
 
     filein.seekg(head.cover_offset, std::ios::beg);
-    filein.read(out, head.cover_size);
+    filein.read(reinterpret_cast<std::istream::char_type *>(out.get()), head.cover_size);
     read = head.cover_size;
 
     return out;
 }
 
 
-void NoteLoaderOJN::LoadObjectsFromStream(std::istream& filein, ChartGroup* out)
+void NoteLoaderOJN::load_objects_from_stream(std::istream& filein, ChartGroup* out)
 {
     OjnHeader head = {};
 
@@ -427,7 +426,7 @@ void NoteLoaderOJN::LoadObjectsFromStream(std::istream& filein, ChartGroup* out)
 
         chart->transient = std::make_shared<ChartTransient>();
         chart->transient->specialized_info = std::make_shared<O2JamChartInfo>();
-        auto info = dynamic_cast<O2JamChartInfo*>(chart->transient->specialized_info.get());
+        const auto info = dynamic_cast<O2JamChartInfo*>(chart->transient->specialized_info.get());
 
         switch (i)
         {

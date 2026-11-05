@@ -940,7 +940,7 @@ public:
 };
 
 
-void NoteLoaderOM::LoadObjectsFromStream(std::istream& input, ChartGroup *out)
+void NoteLoaderOM::load_objects_from_stream(std::istream& input, ChartGroup *out)
 {
     OsumaniaLoader info(out);
 

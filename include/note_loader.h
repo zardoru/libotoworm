@@ -7,12 +7,12 @@
 
 namespace NoteLoaderSM
 {
-    void LoadObjectsFromStream(std::istream& input, otoworm::ChartGroup *out);
+    void load_objects_from_stream(std::istream& input, otoworm::ChartGroup *out);
 }
 
 namespace NoteLoaderSSC
 {
-    void LoadObjectsFromStream(std::istream& input, otoworm::ChartGroup *out);
+    void load_objects_from_stream(std::istream& input, otoworm::ChartGroup *out);
 }
 
 namespace NoteLoaderFTB
@@ -27,13 +27,13 @@ namespace NoteLoaderBMS
 
 namespace NoteLoaderOM
 {
-    void LoadObjectsFromStream(std::istream& input, otoworm::ChartGroup *out);
+    void load_objects_from_stream(std::istream& input, otoworm::ChartGroup *out);
 }
 
-const char *load_ojn_cover(const std::filesystem::path& filename, size_t &read);
+std::unique_ptr<uint8_t[]> load_ojn_cover(const std::filesystem::path& filename, size_t &read);
 namespace NoteLoaderOJN
 {
-    void LoadObjectsFromStream(std::istream& input, otoworm::ChartGroup *out);
+    void load_objects_from_stream(std::istream& input, otoworm::ChartGroup *out);
 }
 
 namespace NoteLoaderBMSON

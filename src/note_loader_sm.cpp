@@ -411,7 +411,7 @@ SpeedData parse_scrolls(std::string line)
     return ret;
 }
 
-void NoteLoaderSSC::LoadObjectsFromStream(std::istream& filein, ChartGroup *out)
+void NoteLoaderSSC::load_objects_from_stream(std::istream& filein, ChartGroup *out)
 {
     TimingData bpm_data;
     TimingData stops_data;
@@ -670,7 +670,7 @@ void WarpifyTiming(Chart* chart, TimingData& timing)
     }
 }
 
-void NoteLoaderSM::LoadObjectsFromStream(std::istream& filein, ChartGroup *out)
+void NoteLoaderSM::load_objects_from_stream(std::istream& filein, ChartGroup *out)
 {
     TimingData bpm_data;
     TimingData stops_data;

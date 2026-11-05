@@ -106,11 +106,11 @@ namespace
         loader_entry{L".bme", load_bms},
         loader_entry{L".bml", load_bms},
         loader_entry{L".pms", load_pms},
-        loader_entry{L".sm", NoteLoaderSM::LoadObjectsFromStream},
-        loader_entry{L".osu", NoteLoaderOM::LoadObjectsFromStream},
+        loader_entry{L".sm", NoteLoaderSM::load_objects_from_stream},
+        loader_entry{L".osu", NoteLoaderOM::load_objects_from_stream},
         loader_entry{L".ft2", NoteLoaderFTB::load_charts_from_stream},
-        loader_entry{L".ojn", NoteLoaderOJN::LoadObjectsFromStream},
-        loader_entry{L".ssc", NoteLoaderSSC::LoadObjectsFromStream},
+        loader_entry{L".ojn", NoteLoaderOJN::load_objects_from_stream},
+        loader_entry{L".ssc", NoteLoaderSSC::load_objects_from_stream},
         loader_entry{L".bmson", NoteLoaderBMSON::load_bmson_stream},
     };
 }
