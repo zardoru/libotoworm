@@ -286,13 +286,11 @@ class OsumaniaLoader
 
 			if (fraction > 0)
 			{
-				const auto dur_secs = fraction * i->measure_len * spb(i->value);
-				if (dur_secs > line_remove_threshold) {
+                if (const auto dur_secs = fraction * i->measure_len * spb(i->value); dur_secs > line_remove_threshold) {
 					Measure msr;
 					msr.length = fraction * (i)->measure_len;
 					chart_->transient->measures.push_back(msr);
-				}
-				else {
+				} else {
 					if (!chart_->transient->measures.empty())
 						chart_->transient->measures.back().length += fraction * i->measure_len;
 				}

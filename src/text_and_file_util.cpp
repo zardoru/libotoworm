@@ -105,7 +105,7 @@ namespace otoworm::util
 
     std::string to_lower(std::string& str)
     {
-        std::transform(str.begin(), str.end(), str.begin(), tolower);
+        std::ranges::transform(str, str.begin(), tolower);
         return str;
     }
 
