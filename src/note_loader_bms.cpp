@@ -130,23 +130,6 @@ namespace NoteLoaderBMS
         return ret;
     }
 
-    /* literally pasted from wikipedia */
-    constexpr std::string tob36(long unsigned int value)
-    {
-        char buffer[14];
-        size_t offset = sizeof(buffer);
-
-        buffer[--offset] = '\0';
-        do
-        {
-            constexpr char base36[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-            buffer[--offset] = base36[value % 36];
-        }
-        while (value /= 36);
-
-        return {&buffer[offset]};
-    }
-
     constexpr int relative_scratch_channel = 5;
 
     // End channels are usually xZ where X is the start (1, 2, 3 all the way to Z)
@@ -202,19 +185,8 @@ namespace NoteLoaderBMS
                 return rel_track;
             }
         }
-        else
-        {
-            switch (rel_track)
-            {
-            case 0:
-            case 1:
-            case 2:
-            case 3:
-                return rel_track;
-            default: // Undefined
-                return rel_track;
-            }
-        }
+
+        return rel_track;
     }
 
     struct BMSEvent
@@ -245,7 +217,6 @@ namespace NoteLoaderBMS
     typedef std::map<int, std::string> FilenameListIndex;
     typedef std::map<int, bool> FilenameUsedIndex;
     typedef std::map<int, double> BpmListIndex;
-    typedef std::vector<NoteData> NoteVector;
     typedef std::map<int, BMSMeasure> BMSMeasureList;
 
     class BMSLoader
@@ -267,7 +238,6 @@ namespace NoteLoaderBMS
             Measures[Measure].events[Channel].Stuff
             */
         BMSMeasureList measures_;
-        ChartGroup* song_;
         Chart* chart_;
         TimingData timing_;
         std::vector<double> measure_start_beat_;
@@ -345,7 +315,7 @@ namespace NoteLoaderBMS
         {
             for_all_events_in_channel([&](const BMSEvent ev, const int measure)
             {
-                const double bpm = b16toi(tob36(ev.event).c_str());
+                const double bpm = ev.event; // already decoded as hex by the tree parser
                 const double beat = beat_from_measure_fraction(measure, ev.fraction);
 
                 timing_.push_back(TimingSegment(beat, bpm));
@@ -488,14 +458,7 @@ namespace NoteLoaderBMS
             }, side, bms::note_channel::long_note, i, min_relative);
 
 
-            for_note_channels_in_measure([&](const BMSEvent ev, int track)
-            {
-                const double time = get_time_for_measure_fraction(i->first, ev.fraction);
-                NoteData note;
-                note.start = time;
-                note.sound = ev.event / 2; // Mine explosion value.
-                // todo: finish mine mechanics
-            }, side, bms::note_channel::mine, i, min_relative);
+            // todo: mine channels (bms::note_channel::mine) are parsed but not loaded yet.
 
             for_note_channels_in_measure([&](const BMSEvent ev, const int track)
             {
@@ -719,7 +682,7 @@ namespace NoteLoaderBMS
         std::shared_ptr<BMSChartInfo> info_;
 
     public:
-        BMSLoader(ChartGroup* song, std::unique_ptr<Chart>& diff, const bool ispms)
+        BMSLoader(std::unique_ptr<Chart>& diff, const bool ispms)
         {
             for (auto k = 0; k < max_channels; k++)
             {
@@ -732,7 +695,6 @@ namespace NoteLoaderBMS
 
             is_pms_ = ispms;
             chart_ = diff.get();
-            song_ = song;
             chart_->has_no_audio_stream = true;
 
             info_ = std::make_shared<BMSChartInfo>();
@@ -878,12 +840,6 @@ namespace NoteLoaderBMS
         }
     };
 
-    std::string command_subcontents(const std::string& command, const std::string& line)
-    {
-        const uint32_t len = command.length();
-        return line.substr(len);
-    }
-
     bool is_utf8_encoded(const std::string_view data)
     {
         return utf8::starts_with_bom(data.begin(), data.end()) ||
@@ -953,22 +909,6 @@ namespace NoteLoaderBMS
         return "";
     }
 
-    std::optional<bms::tree> ParseTreeFromString(
-        const std::string& data,
-        bms::parse_error* error)
-    {
-        return bms::tree::from_string(data, error);
-    }
-
-    std::optional<bms::tree> ParseTreeFromStream(
-        std::istream& input,
-        bms::parse_error* error)
-    {
-        std::ostringstream data;
-        data << input.rdbuf();
-        return bms::tree::from_string(data.str(), error);
-    }
-
     void load_chart_from_stream(std::istream& filein, ChartGroup* out, const bool is_pms)
     {
         auto chart = std::make_unique<Chart>();
@@ -976,7 +916,7 @@ namespace NoteLoaderBMS
         chart->meta.emplace();
         chart->transient = std::make_shared<ChartTransient>();
 
-        auto info = std::make_unique<BMSLoader>(out, chart, is_pms);
+        auto info = std::make_unique<BMSLoader>(chart, is_pms);
 
         if (!filein)
             throw std::runtime_error("NoteLoaderBMS: input stream is not readable.");
@@ -1010,9 +950,6 @@ namespace NoteLoaderBMS
         std::string line;
         while (std::getline(filein, line))
         {
-            if (line.find('#') == std::string::npos)
-                continue;
-
             bms_text += normalize_bms_line(std::move(line), is_utf8);
             bms_text.push_back('\n');
         }
@@ -1021,7 +958,10 @@ namespace NoteLoaderBMS
         auto parsed_tree = bms::tree::from_string(bms_text, &tree_error);
         if (!parsed_tree)
         {
-            throw std::runtime_error("NoteLoaderBMS: failed to parse BMS control tree.");
+            throw std::runtime_error(
+                "NoteLoaderBMS: failed to parse BMS control tree at line " +
+                std::to_string(tree_error.line_number + 1) +
+                (tree_error.text.empty() ? std::string{} : " (" + tree_error.text + ")"));
         }
 
         struct command_dispatch
@@ -1113,14 +1053,14 @@ namespace NoteLoaderBMS
             {
                 "#wav", true, [&](const bms::command& command)
                 {
-                    const std::string index_str = command_subcontents("#WAV", command.name);
+                    const std::string index_str = command.name.substr(4);
                     info->SetSound(b36toi(index_str.c_str()), command.content);
                 }
             },
             {
                 "#bmp", true, [&](const bms::command& command)
                 {
-                    const std::string index_str = command_subcontents("#BMP", command.name);
+                    const std::string index_str = command.name.substr(4);
                     const int index = b36toi(index_str.c_str());
                     info->SetBMP(index, command.content);
                     if (index == 1)
@@ -1130,28 +1070,28 @@ namespace NoteLoaderBMS
             {
                 "#bpm", true, [&](const bms::command& command)
                 {
-                    const std::string index_str = command_subcontents("#BPM", command.name);
+                    const std::string index_str = command.name.substr(4);
                     info->SetBPM(b36toi(index_str.c_str()), latof(command.content));
                 }
             },
             {
                 "#stop", true, [&](const bms::command& command)
                 {
-                    const std::string index_str = command_subcontents("#STOP", command.name);
+                    const std::string index_str = command.name.substr(5);
                     info->SetStop(b36toi(index_str.c_str()), latof(command.content));
                 }
             },
             {
                 "#exbpm", true, [&](const bms::command& command)
                 {
-                    const std::string index_str = command_subcontents("#EXBPM", command.name);
+                    const std::string index_str = command.name.substr(6);
                     info->SetBPM(b36toi(index_str.c_str()), latof(command.content));
                 }
             },
             {
                 "#scroll", true, [&](const bms::command& command)
                 {
-                    const std::string index_str = command_subcontents("#SCROLL", command.name);
+                    const std::string index_str = command.name.substr(7);
                     info->SetScroll(b36toi(index_str.c_str()), latof(command.content));
                 }
             },

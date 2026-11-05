@@ -22,12 +22,6 @@ namespace NoteLoaderFTB
 
 namespace NoteLoaderBMS
 {
-    std::optional<otoworm::bms::tree> ParseTreeFromString(
-        const std::string& data,
-        otoworm::bms::parse_error* error = nullptr);
-    std::optional<otoworm::bms::tree> ParseTreeFromStream(
-        std::istream& input,
-        otoworm::bms::parse_error* error = nullptr);
     void load_chart_from_stream(std::istream& input, otoworm::ChartGroup *out, bool is_pms = false);
 }
 

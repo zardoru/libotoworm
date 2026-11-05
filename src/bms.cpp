@@ -539,10 +539,13 @@ std::optional<command> parse_line(const std::string& line, size_t line_number, p
 
             const auto event_text = out.name.substr(7);
             out.content = event_text;
+            // Channel 03 (integer BPM) is hexadecimal; every other channel is base 36.
+            const int radix = out.event_channel.kind == channel::bpm ? 16 : 36;
             const auto pair_count = event_text.size() / 2;
             out.events.reserve(pair_count);
             for (size_t i = 0; i < pair_count; ++i) {
-                out.events.push_back(static_cast<uint16_t>(base36(event_text.substr(i * 2, 2))));
+                const auto pair = event_text.substr(i * 2, 2);
+                out.events.push_back(static_cast<uint16_t>(std::strtol(pair.c_str(), nullptr, radix)));
             }
             return out;
         } catch (...) {
